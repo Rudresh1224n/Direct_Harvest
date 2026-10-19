@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # DirectHarvest AI — From Farm to Fair Deal
 
 > **A Complete, College-Demonstrable Agricultural Marketplace & Crop Intelligence Platform**  
@@ -343,3 +344,6 @@ server {
 ## 📄 License
 This project is released for academic, research, and non-commercial educational purposes.
 DirectHarvest AI — *From Farm to Fair Deal.*
+=======
+# Direct_Harvest
+>>>>>>> c390ec7d60bfcd2387f0436bf100732ab9ffe91e
