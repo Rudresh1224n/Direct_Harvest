@@ -57,7 +57,7 @@
         {% endif %}
 
         <form method="POST"
-              action="/login"
+              action="{{ '/admin/login' if is_admin_login else '/login' }}"
               autocomplete="off">
 
             <div class="mb-3">

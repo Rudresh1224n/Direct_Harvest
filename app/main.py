@@ -44,6 +44,36 @@ async def lifespan(application: FastAPI):
 
         Base.metadata.create_all(bind=engine)
         logger.info("Database schema checked and tables verified successfully.")
+
+        # Seed default administrator account if not present
+        from app.database import SessionLocal
+        from app.models.user import User
+        from app.utils.constants import ROLE_ADMIN
+        from app.utils.security import hash_password
+        with SessionLocal() as db:
+            admin_user = (
+                db.query(User)
+                .filter(User.email == "admin@directharvest.com")
+                .first()
+            )
+            admin_phone = "".join(ch for ch in settings.ADMIN_PHONE if ch.isdigit())[-10:] if settings.ADMIN_PHONE else "9691793254"
+            if not admin_user:
+                admin_user = User(
+                    full_name="Administrator",
+                    email="admin@directharvest.com",
+                    phone=admin_phone,
+                    password_hash=hash_password("admin123"),
+                    role=ROLE_ADMIN,
+                    address="Bhopal, Madhya Pradesh",
+                    status="Active",
+                )
+                db.add(admin_user)
+                db.commit()
+                logger.info("Created default administrator account: admin@directharvest.com / admin123")
+            else:
+                if admin_user.status != "Active":
+                    admin_user.status = "Active"
+                    db.commit()
     except Exception as exc:
         logger.error("Database connection/initialization failed for: %s", sanitized_url)
         logger.exception("Database startup error details: %s", exc)

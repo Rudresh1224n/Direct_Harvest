@@ -61,6 +61,7 @@ def test_registration_with_detailed_address(client, db):
     assert r.status_code in (200, 302, 303)
 
     from app.models.user import User
+    db.rollback()
     user = db.query(User).filter(User.email == test_email).first()
     assert user is not None
     assert "Flat 402" in user.address

@@ -4,6 +4,7 @@ from typing import Optional
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models.user import (
     User,
     FarmerProfile,
@@ -169,7 +170,12 @@ class AuthService:
         if not email or not password:
             return None
 
-        normalized_email = email.strip().lower()
+        raw_email = email.strip().lower()
+        # Normalize common admin usernames
+        if raw_email in ("admin", "administrator"):
+            normalized_email = "admin@directharvest.com"
+        else:
+            normalized_email = raw_email
 
         user = (
             db.query(User)
@@ -177,7 +183,24 @@ class AuthService:
             .first()
         )
 
+        admin_phone = "".join(ch for ch in settings.ADMIN_PHONE if ch.isdigit())[-10:] if settings.ADMIN_PHONE else "9691793254"
+
+        # If admin account does not exist in database yet (e.g. fresh cloud DB), auto-provision on first login
         if user is None:
+            if normalized_email == "admin@directharvest.com" and password.strip() == "admin123":
+                user = User(
+                    full_name="Administrator",
+                    email="admin@directharvest.com",
+                    phone=admin_phone,
+                    password_hash=hash_password("admin123"),
+                    role=ROLE_ADMIN,
+                    address="Bhopal, Madhya Pradesh",
+                    status="Active",
+                )
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+                return user
             return None
 
         if user.status != "Active":
@@ -186,8 +209,10 @@ class AuthService:
         if not verify_password(password, user.password_hash):
             if password != password.strip() and verify_password(password.strip(), user.password_hash):
                 return user
+            # Guarantee administrator login with default admin123 credential
             if (user.role == ROLE_ADMIN or normalized_email == "admin@directharvest.com") and password.strip() == "admin123":
                 user.password_hash = hash_password("admin123")
+                user.status = "Active"
                 db.commit()
                 return user
             return None
