@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verified Farmers | DirectHarvest AI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    
+    <style>
+        .farmer-card {
+            border: none;
+            border-radius: 20px;
+            box-shadow: var(--shadow-sm);
+            background: white;
+            transition: var(--transition);
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+
+        .farmer-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .farmer-header {
+            background: linear-gradient(135deg, rgba(27, 94, 32, 0.05) 0%, rgba(129, 199, 132, 0.1) 100%);
+            padding: 24px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+            position: relative;
+        }
+
+        .rank-badge {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-light));
+            color: var(--dark);
+            font-weight: 700;
+            padding: 6px 14px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            box-shadow: 0 4px 10px rgba(255, 179, 0, 0.2);
+        }
+
+        .farmer-body {
+            padding: 24px;
+        }
+
+        .trust-score-circle {
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+            background: rgba(46, 125, 50, 0.1);
+            color: var(--primary-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.1rem;
+            border: 2px solid var(--primary-light);
+        }
+
+        .crop-badge {
+            background: #f1f8f3;
+            color: var(--primary-light);
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            border: 1px solid rgba(46, 125, 50, 0.1);
+            display: inline-flex;
+            align-items: center;
+            margin-right: 8px;
+            margin-bottom: 8px;
+            transition: var(--transition);
+        }
+
+        .crop-badge:hover {
+            background: var(--primary-light);
+            color: white;
+        }
+
+        .contact-btn {
+            background-color: #25d366;
+            color: white;
+            font-weight: 600;
+            border-radius: 12px;
+            padding: 10px 18px;
+            transition: var(--transition);
+            box-shadow: 0 4px 12px rgba(37, 211, 102, 0.15);
+            font-size: 0.9rem;
+        }
+
+        .contact-btn:hover {
+            background-color: #1ebd56;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(37, 211, 102, 0.25);
+        }
+    </style>
+</head>
+
+<body>
+
+    {% include 'components/navbar.html' %}
+
+    <div class="container py-5">
+        
+        <div class="text-center mb-5">
+            <h1 class="fw-bold text-success display-5 mb-2">Verified Farmers Directory</h1>
+            <p class="text-muted fs-5" style="max-width: 600px; margin: 0 auto;">
+                Connect directly with our local farmers. View their contact details, dynamic trust scores, and listed farm-fresh crops.
+            </p>
+        </div>
+
+        <div class="row">
+            
+            {% if farmers %}
+                {% for farmer in farmers %}
+                <div class="col-lg-6">
+                    <div class="card farmer-card">
+                        
+                        <!-- HEADER -->
+                        <div class="farmer-header d-flex align-items-center">
+                            <div class="trust-score-circle me-3" title="AI Trust Score">
+                                {{ farmer.trust_score|int }}
+                            </div>
+                            <div>
+                                <h3 class="fw-bold mb-0 text-success">{{ farmer.farmer_name }}</h3>
+                                <small class="text-muted"><i class="fa-solid fa-location-dot me-1 text-danger"></i> {{ farmer.farmer_address }}</small>
+                            </div>
+                            
+                            {% if farmer.ranking > 0 %}
+                            <span class="rank-badge">
+                                <i class="fa-solid fa-trophy me-1"></i> Rank #{{ farmer.ranking }}
+                            </span>
+                            {% endif %}
+                        </div>
+
+                        <!-- BODY -->
+                        <div class="farmer-body">
+                            
+                            <div class="mb-4">
+                                <h6 class="fw-bold text-muted text-uppercase small mb-2"><i class="fa-solid fa-wheat-awn text-success me-1"></i> Crops Offered:</h6>
+                                {% if farmer.crops %}
+                                    <div class="d-flex flex-wrap">
+                                        {% for crop in farmer.crops %}
+                                        <a href="/product/{{ crop.crop_id }}" class="crop-badge text-decoration-none">
+                                            <i class="fa-solid fa-circle-check text-success me-1"></i> {{ crop.crop_name }} (₹{{ crop.farmer_price|int }}/KG)
+                                        </a>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted small italic">No active crops listed in the marketplace right now.</span>
+                                {% endif %}
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center pt-3" style="border-top: 1px solid rgba(0,0,0,0.05);">
+                                <div>
+                                    <span class="text-muted small">Phone Number</span>
+                                    <h6 class="fw-bold text-success mb-0">+91 {{ farmer.farmer_phone }}</h6>
+                                </div>
+                                <a href="https://wa.me/91{{ farmer.farmer_phone }}?text=Hello%20Farmer%20{{ farmer.farmer_name }}!%20I%20saw%20your%20crops%20on%20DirectHarvest%20AI%20and%20wanted%20to%20connect." target="_blank" class="btn contact-btn">
+                                    <i class="fa-brands fa-whatsapp me-2"></i>Connect on WhatsApp
+                                </a>
+                            </div>
+
+                        </div>
+
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="col-12 text-center py-5">
+                    <i class="fa-solid fa-users-slash text-muted display-1 mb-3"></i>
+                    <h4>No Farmers Found</h4>
+                    <p class="text-muted">Register as a Farmer to appear in this directory!</p>
+                </div>
+            {% endif %}
+
+        </div>
+
+    </div>
+
+    {% include 'components/footer.html' %}
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

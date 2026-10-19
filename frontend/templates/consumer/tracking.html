@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Harvest Delivery Tracking | DirectHarvest AI</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    
+    <!-- Leaflet & OpenStreetMap CSS/JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        :root {
+            --track-green: #10b981;
+            --track-dark: #0f172a;
+            --track-blue: #0284c7;
+        }
+
+        #consumerMap {
+            height: 480px;
+            width: 100%;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+            border: 1px solid #e2e8f0;
+            z-index: 1;
+        }
+
+        /* Stepper Progression */
+        .track-timeline {
+            position: relative;
+            padding-left: 36px;
+        }
+        .track-timeline::before {
+            content: '';
+            position: absolute;
+            left: 14px;
+            top: 10px;
+            bottom: 10px;
+            width: 3px;
+            background: #e2e8f0;
+        }
+        .track-item {
+            position: relative;
+            margin-bottom: 24px;
+            transition: all 0.3s;
+        }
+        .track-item:last-child {
+            margin-bottom: 0;
+        }
+        .track-dot {
+            position: absolute;
+            left: -36px;
+            top: 2px;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: white;
+            border: 3px solid #cbd5e1;
+            color: #94a3b8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 700;
+            z-index: 2;
+            transition: all 0.3s ease;
+        }
+        .track-item.done .track-dot {
+            background: #10b981;
+            border-color: #10b981;
+            color: white;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+        }
+        .track-item.current .track-dot {
+            background: #0284c7;
+            border-color: #0284c7;
+            color: white;
+            animation: pulse-blue 1.5s infinite;
+        }
+        @keyframes pulse-blue {
+            0% { box-shadow: 0 0 0 0 rgba(2, 132, 199, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(2, 132, 199, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(2, 132, 199, 0); }
+        }
+
+        .track-item.done h6,
+        .track-item.current h6 {
+            color: #0f172a;
+            font-weight: 700;
+        }
+        .track-item h6 {
+            font-size: 0.95rem;
+            color: #64748b;
+            margin-bottom: 2px;
+        }
+        .track-item p {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin-bottom: 0;
+        }
+        .track-item.current p {
+            color: #0369a1;
+            font-weight: 600;
+        }
+
+        .eta-banner {
+            background: linear-gradient(135deg, #065f46 0%, #047857 100%);
+            color: white;
+            border-radius: 16px;
+            padding: 18px 24px;
+        }
+
+        .verified-card {
+            background: #f0fdf4;
+            border: 1px dashed #86efac;
+            border-radius: 14px;
+            padding: 14px;
+        }
+    </style>
+</head>
+<body>
+
+{% include 'components/navbar.html' %}
+{% include 'components/sidebar.html' %}
+
+<div class="content-area">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <div>
+            <h2 class="fw-bold text-success mb-1">
+                <i class="fa fa-route me-2"></i> Live Harvest Delivery Tracking
+            </h2>
+            <p class="text-muted small mb-0">
+                Track your farm-fresh produce in real-time as your delivery partner travels from farm to doorstep.
+            </p>
+        </div>
+        <a href="/order-history" class="btn btn-outline-secondary">
+            <i class="fa fa-arrow-left me-1"></i> Back to Orders
+        </a>
+    </div>
+
+    <!-- ETA & Live Status Banner -->
+    <div class="eta-banner shadow-sm mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div class="d-flex align-items-center gap-3">
+            <div class="bg-white text-success rounded-circle d-flex align-items-center justify-content-center" style="width: 54px; height: 54px; font-size: 1.5rem;">
+                <i class="fa fa-truck-fast"></i>
+            </div>
+            <div>
+                <div class="text-white-50 small fw-bold text-uppercase">Delivery Status</div>
+                <h4 class="fw-bold mb-0 text-white" id="liveStepTitle">
+                    {% if order.delivery_step == 'delivered' %}Order Delivered!
+                    {% elif order.delivery_step == 'rider_arrived' %}Rider Arrived at Doorstep!
+                    {% elif order.delivery_step == 'about_to_arrive' %}Rider is About to Arrive!
+                    {% elif order.delivery_step == 'out_for_delivery' %}Out for Delivery to Your Address
+                    {% elif order.delivery_step == 'package_picked' %}Package Picked & Verified
+                    {% elif order.delivery_step == 'order_packing' %}Order is Getting Packed at Farm
+                    {% elif order.delivery_step == 'heading_to_farmer' %}Rider is on the Way to Farmer
+                    {% else %}Rider Accepted Your Order
+                    {% endif %}
+                </h4>
+            </div>
+        </div>
+
+        <div class="d-flex align-items-center gap-4 text-end">
+            <div>
+                <div class="text-white-50 small fw-bold">ESTIMATED ARRIVAL</div>
+                <h3 class="fw-bold mb-0 text-warning" id="liveEta">-- mins</h3>
+            </div>
+            <div>
+                <div class="text-white-50 small fw-bold">DISTANCE</div>
+                <h4 class="fw-bold mb-0 text-white" id="liveDistance">-- km</h4>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Live Map Column -->
+        <div class="col-lg-8">
+            <div class="card border-0 card-shadow overflow-hidden mb-4">
+                <div id="consumerMap"></div>
+            </div>
+
+            <!-- Rider Profile & Contact -->
+            <div class="card border-0 card-shadow p-4 bg-white mb-4">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center fw-bold fs-4" style="width: 52px; height: 52px;">
+                            {{ (order.delivery_partner.full_name if order.delivery_partner else 'R')[:1] }}
+                        </div>
+                        <div>
+                            <h5 class="fw-bold mb-0 text-dark">
+                                {{ order.delivery_partner.full_name if order.delivery_partner else 'Assigned Delivery Partner' }}
+                            </h5>
+                            <div class="text-muted small">
+                                <i class="fa fa-shield-check text-success me-1"></i> Verified DirectHarvest Rider &bull;
+                                <span class="badge bg-light text-dark border">
+                                    {{ (order.delivery_partner.delivery_profile.vehicle_type if order.delivery_partner and order.delivery_partner.delivery_profile else 'Delivery Bike') }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 align-items-center">
+                        {% if order.delivery_partner and order.delivery_partner.phone %}
+                        <a href="tel:{{ order.delivery_partner.phone }}" class="btn btn-outline-success fw-bold">
+                            <i class="fa fa-phone me-1"></i> Call Rider
+                        </a>
+                        {% endif %}
+                        <span class="badge bg-success bg-opacity-10 text-success p-2 px-3 fw-bold border border-success">
+                            OTP: {{ order.delivery_otp or '---' }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Package Verification Card -->
+            <div class="card border-0 card-shadow p-4 bg-white" id="packageVerifyCard">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="fw-bold text-dark mb-0">
+                        <i class="fa fa-certificate text-success me-2"></i> Quality & Package Verification
+                    </h6>
+                    <span class="badge bg-success" id="photoVerifyBadge">
+                        {% if order.package_photo %}Verified by Head Office{% else %}Verification in Progress{% endif %}
+                    </span>
+                </div>
+                <p class="text-muted small mb-3">
+                    Before leaving the farm, our rider snaps a high-resolution photo of your packed harvest and submits it to Head Office to ensure fresh quality and accurate weight.
+                </p>
+
+                <div id="consumerPhotoContainer">
+                    {% if order.package_photo %}
+                        <div class="verified-card d-flex align-items-center gap-3">
+                            <img src="{{ order.package_photo }}" alt="Packed Produce" class="rounded-3 shadow-sm" style="width: 90px; height: 90px; object-fit: cover; cursor: pointer;" onclick="previewPhoto('{{ order.package_photo }}')">
+                            <div>
+                                <h6 class="fw-bold text-success mb-1"><i class="fa fa-circle-check me-1"></i> Harvest Package Photo Verified</h6>
+                                <p class="small text-muted mb-0">Photo received from farm location. Order cleared for direct doorstep delivery.</p>
+                                <small class="text-muted">Click photo to zoom</small>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="p-3 bg-light rounded-3 text-muted small text-center" id="awaitingPhotoBox">
+                            <i class="fa fa-camera-retro text-muted me-1"></i>
+                            Rider will photograph your packed harvest at the farm upon pickup.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 7-Step Milestones & Order Info -->
+        <div class="col-lg-4">
+            <div class="card border-0 card-shadow h-100">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <h5 class="fw-bold text-dark mb-0">Order #{{ order.order_id }}</h5>
+                        <span class="badge bg-success">₹{{ "%.2f"|format(order.total_amount) }}</span>
+                    </div>
+                    <div class="text-muted small mb-3">
+                        {{ order.crop.crop_name if order.crop else 'Harvest Item' }} &bull; {{ order.quantity }} {{ order.crop.unit if order.crop else 'KG' }}
+                    </div>
+                    <hr>
+
+                    <h6 class="fw-bold text-muted mb-3"><i class="fa fa-list-check me-1"></i> Live Milestones</h6>
+                    
+                    <!-- 7-Step Stepper -->
+                    <div class="track-timeline">
+                        <div class="track-item" id="cstep_rider_accepted">
+                            <div class="track-dot"><i class="fa fa-check"></i></div>
+                            <h6>1. Rider Accepted the Order</h6>
+                            <p>Rider confirmed pickup assignment</p>
+                        </div>
+
+                        <div class="track-item" id="cstep_heading_to_farmer">
+                            <div class="track-dot"><i class="fa fa-motorcycle"></i></div>
+                            <h6>2. Reaching Farmer</h6>
+                            <p>Rider is on the way to reach the farmer</p>
+                        </div>
+
+                        <div class="track-item" id="cstep_order_packing">
+                            <div class="track-dot"><i class="fa fa-box-open"></i></div>
+                            <h6>3. Order Getting Packed</h6>
+                            <p>Fresh harvest is being sorted & packed at farm</p>
+                        </div>
+
+                        <div class="track-item" id="cstep_package_picked">
+                            <div class="track-dot"><i class="fa fa-camera"></i></div>
+                            <h6>4. Picked & Photo Submitted</h6>
+                            <p>Package photo sent to Head Office</p>
+                        </div>
+
+                        <div class="track-item" id="cstep_out_for_delivery">
+                            <div class="track-dot"><i class="fa fa-truck-fast"></i></div>
+                            <h6>5. Delivering to Your Address</h6>
+                            <p>Rider is coming to deliver the order at your home</p>
+                        </div>
+
+                        <div class="track-item" id="cstep_about_to_arrive">
+                            <div class="track-dot"><i class="fa fa-bell"></i></div>
+                            <h6>6. Rider About to Arrive</h6>
+                            <p>Within your immediate neighborhood</p>
+                        </div>
+
+                        <div class="track-item" id="cstep_delivered">
+                            <div class="track-dot"><i class="fa fa-house-chimney-check"></i></div>
+                            <h6>7. Arrived & Delivered</h6>
+                            <p>Harvest handed over safely</p>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <!-- Route Details -->
+                    <div class="bg-light p-3 rounded-3 mb-3">
+                        <h6 class="fw-bold mb-1 text-success"><i class="fa fa-wheat-awn me-1"></i> Farm Origin</h6>
+                        <div class="small fw-semibold text-dark">{{ order.farmer.full_name if order.farmer else 'Farmer' }}</div>
+                        <div class="small text-muted">{{ order.farmer.address if order.farmer else 'Farm Location' }}</div>
+                    </div>
+
+                    <div class="bg-light p-3 rounded-3">
+                        <h6 class="fw-bold mb-1 text-primary"><i class="fa fa-house me-1"></i> Delivery Destination</h6>
+                        <div class="small fw-semibold text-dark">{{ order.consumer.full_name if order.consumer else 'Customer' }}</div>
+                        <div class="small text-muted">{{ order.delivery_address }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include 'components/footer.html' %}
+
+<!-- Photo Preview Modal -->
+<div class="modal fade" id="consumerPhotoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 shadow">
+            <div class="modal-header">
+                <h6 class="modal-title fw-bold">Farm Package Verification Photo</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center p-3">
+                <img src="" id="consumerZoomImg" class="img-fluid rounded-3" alt="Zoomed Package">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const ORDER_ID = {{ order.order_id }};
+    const STEP_ORDER = [
+        "rider_accepted",
+        "heading_to_farmer",
+        "order_packing",
+        "package_picked",
+        "out_for_delivery",
+        "about_to_arrive",
+        "delivered"
+    ];
+
+    let consumerMap = null;
+    let riderMarker = null;
+    let farmMarker = null;
+    let customerMarker = null;
+    let routePolyline = null;
+
+    // Custom Map Icons
+    const riderIcon = L.divIcon({
+        className: 'c-rider-icon',
+        html: `<div style="background:#0f766e; color:white; width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 0 12px rgba(15,118,110,0.8); border:3px solid white; font-size:16px;"><i class="fa fa-motorcycle"></i></div>`,
+        iconSize: [38, 38],
+        iconAnchor: [19, 19]
+    });
+
+    const farmIcon = L.divIcon({
+        className: 'c-farm-icon',
+        html: `<div style="background:#16a34a; color:white; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 0 8px rgba(22,163,74,0.6); border:2px solid white; font-size:14px;"><i class="fa fa-wheat-awn"></i></div>`,
+        iconSize: [34, 34],
+        iconAnchor: [17, 17]
+    });
+
+    const homeIcon = L.divIcon({
+        className: 'c-home-icon',
+        html: `<div style="background:#2563eb; color:white; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 0 8px rgba(37,99,235,0.6); border:2px solid white; font-size:14px;"><i class="fa fa-house"></i></div>`,
+        iconSize: [34, 34],
+        iconAnchor: [17, 17]
+    });
+
+    function initMap(centerLat, centerLng) {
+        if (!consumerMap) {
+            consumerMap = L.map('consumerMap').setView([centerLat, centerLng], 12);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(consumerMap);
+        }
+    }
+
+    function updateStepUI(currentStep) {
+        // Map alternative statuses to 7 steps
+        if (currentStep === "Assigned") currentStep = "rider_accepted";
+        if (currentStep === "Picked Up") currentStep = "package_picked";
+        if (currentStep === "In Transit") currentStep = "out_for_delivery";
+        if (currentStep === "Delivered") currentStep = "delivered";
+        if (currentStep === "rider_arrived") currentStep = "about_to_arrive";
+
+        const currentIndex = STEP_ORDER.indexOf(currentStep);
+
+        STEP_ORDER.forEach((step, idx) => {
+            const el = document.getElementById(`cstep_${step}`);
+            if (!el) return;
+            el.classList.remove('done', 'current');
+            const dot = el.querySelector('.track-dot');
+
+            if (idx < currentIndex) {
+                el.classList.add('done');
+                dot.innerHTML = '<i class="fa fa-check"></i>';
+            } else if (idx === currentIndex) {
+                el.classList.add('current');
+            }
+        });
+
+        // Special case: fully delivered
+        if (currentStep === "delivered") {
+            const delEl = document.getElementById('cstep_delivered');
+            if (delEl) {
+                delEl.classList.remove('current');
+                delEl.classList.add('done');
+                delEl.querySelector('.track-dot').innerHTML = '<i class="fa fa-circle-check"></i>';
+            }
+        }
+    }
+
+    async function pollLiveTelemetry() {
+        try {
+            const res = await fetch(`/api/delivery/order/${ORDER_ID}/live-tracking`);
+            const data = await res.json();
+            if (!data.success) return;
+
+            const t = data.telemetry;
+            document.getElementById('liveDistance').innerText = `${t.distance_km || 0} km`;
+            document.getElementById('liveEta').innerText = `${t.eta_minutes || 0} mins`;
+            document.getElementById('liveStepTitle').innerText = t.step_description || 'In Transit';
+
+            updateStepUI(t.delivery_step || 'rider_accepted');
+
+            // Update package photo if uploaded
+            if (t.package_photo) {
+                const container = document.getElementById('consumerPhotoContainer');
+                const badge = document.getElementById('photoVerifyBadge');
+                if (badge) {
+                    badge.className = 'badge bg-success';
+                    badge.innerText = 'Verified by Head Office';
+                }
+                container.innerHTML = `
+                    <div class="verified-card d-flex align-items-center gap-3">
+                        <img src="${t.package_photo}" alt="Packed Produce" class="rounded-3 shadow-sm" style="width: 90px; height: 90px; object-fit: cover; cursor: pointer;" onclick="previewPhoto('${t.package_photo}')">
+                        <div>
+                            <h6 class="fw-bold text-success mb-1"><i class="fa fa-circle-check me-1"></i> Harvest Package Photo Verified</h6>
+                            <p class="small text-muted mb-0">Photo received from farm location. Order cleared for direct doorstep delivery.</p>
+                            <small class="text-muted">Click photo to zoom</small>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Update Map Pins & Route
+            const riderPos = [t.rider.lat, t.rider.lng];
+            const farmPos = [t.farmer.lat, t.farmer.lng];
+            const consumerPos = [t.consumer.lat, t.consumer.lng];
+
+            if (!consumerMap) {
+                initMap(riderPos[0], riderPos[1]);
+            }
+
+            if (!riderMarker) {
+                riderMarker = L.marker(riderPos, { icon: riderIcon }).addTo(consumerMap).bindPopup(`<b>${t.rider.name}</b> (Live Position)`);
+            } else {
+                riderMarker.setLatLng(riderPos);
+            }
+
+            if (!farmMarker) {
+                farmMarker = L.marker(farmPos, { icon: farmIcon }).addTo(consumerMap).bindPopup(`<b>Farm Pickup:</b> ${t.farmer.name}`);
+            }
+
+            if (!customerMarker) {
+                customerMarker = L.marker(consumerPos, { icon: homeIcon }).addTo(consumerMap).bindPopup(`<b>Your Home:</b> ${t.consumer.name}`);
+            }
+
+            const points = [riderPos, farmPos, consumerPos];
+            if (!routePolyline) {
+                routePolyline = L.polyline(points, {
+                    color: '#10b981',
+                    weight: 5,
+                    opacity: 0.8,
+                    dashArray: '8, 8'
+                }).addTo(consumerMap);
+                consumerMap.fitBounds(L.latLngBounds(points), { padding: [50, 50] });
+            } else {
+                routePolyline.setLatLngs(points);
+            }
+
+        } catch (err) {
+            console.error("Live telemetry polling error:", err);
+        }
+    }
+
+    function previewPhoto(src) {
+        document.getElementById('consumerZoomImg').src = src;
+        const m = new bootstrap.Modal(document.getElementById('consumerPhotoModal'));
+        m.show();
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        updateStepUI("{{ order.delivery_step or 'rider_accepted' }}");
+        pollLiveTelemetry();
+        setInterval(pollLiveTelemetry, 3000);
+    });
+</script>
+
+</body>
+</html>

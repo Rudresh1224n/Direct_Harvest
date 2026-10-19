@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile | DirectHarvest AI</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/address_autocomplete.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <style>
+        .profile-container {
+            min-height: 80vh;
+            padding: 50px 0;
+            background: linear-gradient(135deg, #f4f7f4 0%, #e8efe8 100%);
+        }
+
+        .profile-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px 0 rgba(46, 125, 50, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            overflow: hidden;
+        }
+
+        .profile-header {
+            background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .profile-avatar {
+            font-size: 60px;
+            background: rgba(255, 255, 255, 0.2);
+            width: 100px;
+            height: 100px;
+            line-height: 100px;
+            border-radius: 50%;
+            margin: 0 auto 15px auto;
+            border: 3px solid white;
+        }
+
+        .profile-body {
+            padding: 40px;
+        }
+
+        .form-control:focus {
+            border-color: #2e7d32;
+            box-shadow: 0 0 0 0.25rem rgba(46, 125, 50, 0.25);
+        }
+
+        .role-badge {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            font-weight: 600;
+            padding: 6px 16px;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            display: inline-block;
+        }
+    </style>
+</head>
+
+<body>
+
+{% include 'components/navbar.html' %}
+
+<div class="profile-container">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-7">
+                <div class="profile-card">
+                    <div class="profile-header">
+                        <div class="profile-avatar">
+                            <i class="fa-solid fa-user"></i>
+                        </div>
+                        <h3 class="mb-1">{{ user["full_name"] }}</h3>
+                        <span class="role-badge">
+                            {{ user["role"]|title }} Account
+                        </span>
+                    </div>
+
+                    <div class="profile-body">
+                        {% if success %}
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="fa-solid fa-circle-check me-2"></i> {{ success }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                        {% endif %}
+
+                        {% if error %}
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="fa-solid fa-triangle-exclamation me-2"></i> {{ error }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                        {% endif %}
+
+                        <form method="POST" action="/profile">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-semibold">Full Name</label>
+                                    <input type="text" class="form-control" name="full_name" value="{{ user['full_name'] }}" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-semibold">Email Address</label>
+                                    <input type="email" class="form-control bg-light" value="{{ user['email'] }}" disabled>
+                                    <div class="form-text text-muted">Email address cannot be changed.</div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-semibold">Phone Number</label>
+                                    <input type="text" class="form-control" name="phone" value="{{ user['phone'] }}" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-semibold">Account Status</label>
+                                    <input type="text" class="form-control bg-light" value="{{ user['status']|upper }}" disabled>
+                                </div>
+                            </div>
+
+                            <!-- Detailed Address Component with Live Autocomplete -->
+                            <div class="address-details-card mb-4">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <label class="address-label mb-0 text-success"><i class="fa fa-map-location-dot me-1"></i> Delivery Address / Farm Location Details</label>
+                                    <span class="badge bg-light text-muted border small"><i class="fa fa-location-crosshairs text-primary me-1"></i> Live Maps Verification</span>
+                                </div>
+
+                                <!-- Street / Road / Area with live typing autocomplete -->
+                                <div class="mb-3">
+                                    <label class="address-label">STREET / ROAD / AREA (START TYPING FOR SUGGESTIONS)</label>
+                                    <div class="autocomplete-wrapper">
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-white border-end-0"><i class="fa fa-magnifying-glass text-muted"></i></span>
+                                            <input type="text" id="prof_street" class="form-control address-input border-start-0" placeholder="Type letters to search street, road, colony or sector..." autocomplete="off">
+                                        </div>
+                                        <div id="prof_street_dropdown" class="autocomplete-dropdown"></div>
+                                    </div>
+                                    <div class="form-text text-muted small mt-1">
+                                        <i class="fa fa-shield-halved text-success me-1"></i> Suggests real streets and places matching Google Maps to prevent non-existent locations.
+                                    </div>
+                                </div>
+
+                                <div class="row g-2">
+                                    <!-- House / Flat / Block No. (Matching reference image: Sample 1) -->
+                                    <div class="col-md-6 mb-2">
+                                        <label class="address-label">HOUSE / FLAT / BLOCK NO.</label>
+                                        <input type="text" id="prof_house" class="form-control address-input" placeholder="e.g. Flat 304, 3rd Floor, Block B">
+                                    </div>
+
+                                    <!-- Apartment / Road / Area (Matching reference image: Sample 2) -->
+                                    <div class="col-md-6 mb-2">
+                                        <label class="address-label">APARTMENT / ROAD / AREA (OPTIONAL)</label>
+                                        <input type="text" id="prof_apartment" class="form-control address-input" placeholder="e.g. Silver Heights Society / Sector A">
+                                    </div>
+                                </div>
+
+                                <div class="row g-2">
+                                    <!-- Landmark -->
+                                    <div class="col-md-6 mb-2">
+                                        <label class="address-label">LANDMARK (OPTIONAL)</label>
+                                        <input type="text" id="prof_landmark" class="form-control address-input" placeholder="e.g. Near Apollo Hospital / City Mall">
+                                    </div>
+
+                                    <!-- District / City -->
+                                    <div class="col-md-6 mb-2">
+                                        <label class="address-label">DISTRICT / CITY (MADHYA PRADESH)</label>
+                                        <input type="text" name="city" id="prof_city" class="form-control address-input" placeholder="e.g. Indore">
+                                    </div>
+                                </div>
+
+                                <div class="row g-2">
+                                    <!-- State -->
+                                    <div class="col-md-6 mb-2">
+                                        <label class="address-label">STATE</label>
+                                        <input type="text" name="state" id="prof_state" class="form-control address-input" value="Madhya Pradesh">
+                                    </div>
+
+                                    <!-- Pincode -->
+                                    <div class="col-md-6 mb-2">
+                                        <label class="address-label">PINCODE</label>
+                                        <input type="text" name="pincode" id="prof_pincode" class="form-control address-input" placeholder="e.g. 452010" maxlength="6" pattern="[0-9]{6}">
+                                    </div>
+                                </div>
+
+                                <!-- Synced combined address for profile submission -->
+                                <textarea name="address" id="prof_address" class="d-none">{{ user['address'] or '' }}</textarea>
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                                <button type="submit" class="btn btn-success px-4 py-2">
+                                    <i class="fa-solid fa-floppy-disk me-2"></i> Save Changes
+                                </button>
+                                
+                                {% if user["role"] == "farmer" %}
+                                <a href="/farmer/dashboard" class="btn btn-outline-success px-4 py-2">
+                                    <i class="fa-solid fa-chart-line me-2"></i> Farmer Dashboard
+                                </a>
+                                {% elif user["role"] == "consumer" %}
+                                <a href="/order-history" class="btn btn-outline-success px-4 py-2">
+                                    <i class="fa-solid fa-clock-rotate-left me-2"></i> Consumer Dashboard
+                                </a>
+                                {% elif user["role"] == "delivery" %}
+                                <a href="/delivery/dashboard" class="btn btn-outline-success px-4 py-2">
+                                    <i class="fa-solid fa-truck-ramp-box me-2"></i> Delivery Dashboard
+                                </a>
+                                {% elif user["role"] == "admin" %}
+                                <a href="/admin/dashboard" class="btn btn-outline-success px-4 py-2">
+                                    <i class="fa-solid fa-gauge me-2"></i> Admin Panel
+                                </a>
+                                {% endif %}
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include 'components/footer.html' %}
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/address_autocomplete.js') }}"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        setupDetailedAddress({
+            houseId: 'prof_house',
+            apartmentId: 'prof_apartment',
+            streetId: 'prof_street',
+            landmarkId: 'prof_landmark',
+            cityId: 'prof_city',
+            stateId: 'prof_state',
+            pincodeId: 'prof_pincode',
+            combinedId: 'prof_address',
+            dropdownId: 'prof_street_dropdown'
+        });
+    });
+</script>
+
+</body>
+</html>

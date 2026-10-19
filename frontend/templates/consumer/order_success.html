@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Confirmed | DirectHarvest AI</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    
+    <style>
+        body {
+            background: linear-gradient(135deg, #f4fdf4 0%, #e8f5e9 100%);
+            min-height: 100vh;
+        }
+
+        .success-card {
+            background: #ffffff;
+            border: 1px solid rgba(46, 125, 50, 0.15);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(46, 125, 50, 0.08);
+            overflow: hidden;
+        }
+
+        /* Animated SVG checkmark */
+        .checkmark-wrapper {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto;
+        }
+
+        .checkmark {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: block;
+            stroke-width: 3;
+            stroke: #2e7d32;
+            stroke-miterlimit: 10;
+            box-shadow: inset 0px 0px 0px #2e7d32;
+            animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out 0s both;
+        }
+
+        .checkmark__circle {
+            stroke-dasharray: 166;
+            stroke-dashoffset: 166;
+            stroke-width: 3;
+            stroke-miterlimit: 10;
+            stroke: #2e7d32;
+            fill: none;
+            animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+        }
+
+        .checkmark__check {
+            transform-origin: 50% 50%;
+            stroke-dasharray: 48;
+            stroke-dashoffset: 48;
+            animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.6s forwards;
+        }
+
+        @keyframes stroke {
+            100% { stroke-dashoffset: 0; }
+        }
+
+        @keyframes scale {
+            0%, 100% { transform: none; }
+            50% { transform: scale3d(1.08, 1.08, 1); }
+        }
+
+        @keyframes fill {
+            100% { box-shadow: inset 0px 0px 0px 40px rgba(46, 125, 50, 0.08); }
+        }
+
+        /* WhatsApp Dispatch Box */
+        .wa-card {
+            border-radius: 16px;
+            border: 1.5px solid #25d366;
+            background: #f0fdf4;
+            transition: all 0.25s ease;
+        }
+
+        .wa-progress-track {
+            height: 5px;
+            background: #dcfce7;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .wa-progress-bar {
+            height: 100%;
+            width: 100%;
+            background: #22c55e;
+            transform-origin: left;
+            animation: progressCountdown 3s linear forwards;
+        }
+
+        @keyframes progressCountdown {
+            from { transform: scaleX(1); }
+            to { transform: scaleX(0); }
+        }
+
+        .btn-whatsapp {
+            background-color: #25D366;
+            color: #ffffff;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-whatsapp:hover {
+            background-color: #1eb854;
+            color: #ffffff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+        }
+
+        .receipt-card {
+            background: #fafafa;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+        }
+    </style>
+</head>
+
+<body>
+
+    {% include 'components/navbar.html' %}
+
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-6 col-md-8">
+
+                <div class="card success-card border-0 p-4 p-md-5 text-center">
+                    
+                    <!-- SUCCESS ICON -->
+                    <div class="checkmark-wrapper mb-3">
+                        <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                            <circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none" />
+                            <path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8" />
+                        </svg>
+                    </div>
+
+                    <h2 class="fw-bold text-success mb-1">Order Placed Successfully!</h2>
+                    <p class="text-muted small mb-3">
+                        Order <strong>#{{ order.order_id }}</strong> confirmed • {{ order_date_str }} IST
+                    </p>
+
+                    <!-- WHATSAPP STATE 1: COUNTDOWN (Only runs once) -->
+                    <div id="countdown-card" class="wa-card p-3 p-md-4 mb-3 text-start">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fa-brands fa-whatsapp text-success fs-2 me-3"></i>
+                            <div>
+                                <h6 class="fw-bold mb-0 text-success">
+                                    Opening WhatsApp in <span id="countdown-seconds" class="badge bg-success fs-6">3</span>s...
+                                </h6>
+                                <p class="small text-muted mb-0">
+                                    Sending order receipt to your WhatsApp: <strong>{{ customer_phone if customer_phone else 'Your mobile number' }}</strong>
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="wa-progress-track mt-3 mb-3">
+                            <div class="wa-progress-bar"></div>
+                        </div>
+
+                        <button id="btn-open-wa-now" class="btn btn-whatsapp w-100 py-2 small">
+                            <i class="fa-brands fa-whatsapp me-2"></i>Send Confirmation to My WhatsApp Now
+                        </button>
+                    </div>
+
+                    <!-- WHATSAPP STATE 2: ALREADY DISPATCHED (Shown on Back button or after countdown) -->
+                    <div id="dispatched-card" class="wa-card p-3 mb-3 text-start" style="display: none;">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div class="d-flex align-items-center">
+                                <span class="badge bg-success-subtle text-success border border-success me-2 px-2 py-1">
+                                    <i class="fa-solid fa-check me-1"></i> Dispatched
+                                </span>
+                                <strong class="small text-dark">Customer Receipt Ready</strong>
+                            </div>
+                            <span class="small text-muted"><i class="fa-solid fa-phone me-1"></i>{{ customer_phone }}</span>
+                        </div>
+                        <p class="small text-muted mb-3">
+                            Your WhatsApp order confirmation draft was prepared. Tap below to view or re-send anytime.
+                        </p>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a href="{{ customer_wa_url }}" target="_blank" class="btn btn-whatsapp btn-sm px-3 py-2">
+                                <i class="fa-brands fa-whatsapp me-1"></i> Re-open My WhatsApp Receipt
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- DIRECT FARMER CONNECT CARD -->
+                    <div class="card border border-success-subtle bg-light-subtle p-3 mb-4 text-start rounded-3">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-success text-white rounded-circle p-2 me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                    <i class="fa-solid fa-tractor"></i>
+                                </div>
+                                <div>
+                                    <h6 class="fw-bold mb-0 text-dark">Farmer: {{ farmer_name }}</h6>
+                                    <p class="small text-muted mb-0">
+                                        {% if farmer_phone %}
+                                        Phone: <strong>{{ farmer_phone }}</strong>
+                                        {% else %}
+                                        Direct Platform Partner
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                            {% if farmer_wa_url %}
+                            <a href="{{ farmer_wa_url }}" target="_blank" class="btn btn-outline-success btn-sm fw-semibold px-3 py-2">
+                                <i class="fa-brands fa-whatsapp text-success me-1"></i> Send Order Alert to Farmer
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- ORDER SUMMARY RECEIPT (Clean & Non-Redundant) -->
+                    <div class="receipt-card p-3 mb-4 text-start">
+                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                            <span class="text-muted small">Produce Item</span>
+                            <span class="fw-bold text-dark">{{ crop_name }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                            <span class="text-muted small">Quantity</span>
+                            <span class="fw-bold text-dark">{{ quantity }} KG</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                            <span class="text-muted small">Farmer</span>
+                            <span class="text-dark">{{ farmer_name }} {% if farmer_phone %}({{ farmer_phone }}){% endif %}</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                            <span class="text-muted small">Customer Contact</span>
+                            <span class="text-dark">{{ customer_phone }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                            <span class="text-muted small">Payment Method</span>
+                            <span class="badge bg-light text-dark border">{{ order.payment_method }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                            <span class="text-muted small">Delivery Address</span>
+                            <span class="small text-end text-dark" style="max-width: 60%;">{{ order.delivery_address }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center pt-1">
+                            <span class="fw-bold text-dark">Total Amount</span>
+                            <span class="fw-bold text-success fs-5">₹{{ total_amount }}</span>
+                        </div>
+                    </div>
+
+                    <!-- ACTION BUTTONS -->
+                    <div class="d-grid gap-2">
+                        <a href="/order-history" class="btn btn-success py-2 fw-semibold rounded-3 shadow-sm">
+                            <i class="fa-solid fa-clock-rotate-left me-2"></i>View My Orders
+                        </a>
+                        <a href="/marketplace" class="btn btn-outline-secondary py-2 small rounded-3">
+                            <i class="fa-solid fa-store me-1"></i>Continue Shopping
+                        </a>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    {% include 'components/footer.html' %}
+
+    <script>
+        (function () {
+            const orderId = "{{ order.order_id }}";
+            const whatsappUrl = "{{ whatsapp_url|safe }}";
+            const storageKey = 'dh_order_wa_sent_' + orderId;
+
+            const countdownCard = document.getElementById('countdown-card');
+            const dispatchedCard = document.getElementById('dispatched-card');
+            const countdownEl = document.getElementById('countdown-seconds');
+            const manualBtn = document.getElementById('btn-open-wa-now');
+
+            let countdownTimer = null;
+            let seconds = 3;
+
+            function isAlreadySent() {
+                try {
+                    return localStorage.getItem(storageKey) === 'true';
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            function showDispatchedState() {
+                if (countdownTimer) {
+                    clearInterval(countdownTimer);
+                    countdownTimer = null;
+                }
+                if (countdownCard) countdownCard.style.display = 'none';
+                if (dispatchedCard) dispatchedCard.style.display = 'block';
+            }
+
+            function dispatchToWhatsApp() {
+                try {
+                    localStorage.setItem(storageKey, 'true');
+                } catch (e) {}
+
+                showDispatchedState();
+
+                if (whatsappUrl && whatsappUrl.trim() !== "") {
+                    // Navigate to WhatsApp draft
+                    window.location.href = whatsappUrl;
+                }
+            }
+
+            // 1. If already sent previously (e.g. Back button from WhatsApp), show dispatched state immediately
+            if (isAlreadySent()) {
+                showDispatchedState();
+            } else {
+                // 2. Otherwise start single 3-second countdown
+                countdownTimer = setInterval(function () {
+                    seconds--;
+                    if (countdownEl) countdownEl.textContent = seconds;
+                    if (seconds <= 0) {
+                        clearInterval(countdownTimer);
+                        dispatchToWhatsApp();
+                    }
+                }, 1000);
+            }
+
+            // 3. Handle browser Back button (bfcache restoration)
+            window.addEventListener('pageshow', function (event) {
+                if (isAlreadySent()) {
+                    showDispatchedState();
+                }
+            });
+
+            // 4. Instant manual click
+            if (manualBtn) {
+                manualBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    dispatchToWhatsApp();
+                });
+            }
+        })();
+    </script>
+
+</body>
+
+</html>

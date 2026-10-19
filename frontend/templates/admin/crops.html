@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Manage Crops | DirectHarvest AI</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet">
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/admin.css') }}">
+
+</head>
+
+<body>
+
+<div class="container-fluid">
+
+    <div class="admin-header d-flex justify-content-between align-items-center">
+
+        <h2>
+            🌾 Crop Management
+        </h2>
+
+        <a href="/admin/dashboard"
+           class="btn btn-light">
+
+            Dashboard
+
+        </a>
+
+    </div>
+
+    {% if success %}
+    <div class="alert alert-success alert-dismissible fade show mt-3 rounded-3" role="alert">
+        ✅ {{ success }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+    {% if error %}
+    <div class="alert alert-danger alert-dismissible fade show mt-3 rounded-3" role="alert">
+        ⚠️ {{ error }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+    <!-- SEARCH & FILTER -->
+
+    <div class="admin-card mt-4">
+
+        <div class="row">
+
+            <div class="col-md-6">
+
+                <input type="text"
+                       class="form-control"
+                       id="cropSearch"
+                       placeholder="Search Crop Name or Farmer...">
+
+            </div>
+
+            <div class="col-md-6">
+
+                <select class="form-select" id="statusFilter">
+
+                    <option value="">All Statuses</option>
+
+                    <option value="available">Approved (Available)</option>
+
+                    <option value="pending">Pending</option>
+
+                    <option value="rejected">Rejected</option>
+
+                </select>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- CROPS TABLE -->
+
+    <div class="admin-card mt-4">
+
+        <h4>
+            Listed Crops
+        </h4>
+
+        <hr>
+
+        <div class="table-responsive">
+
+            <table class="table table-striped table-hover">
+
+                <thead>
+
+                    <tr>
+
+                        <th>ID</th>
+                        <th>Crop</th>
+                        <th>Farmer</th>
+                        <th>Quantity</th>
+                        <th>Price</th>
+                        {% if ai_enabled %}
+                        <th>Grade</th>
+                        <th>Freshness</th>
+                        <th>Demand</th>
+                        {% endif %}
+                        <th>Status</th>
+                        <th>Actions</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody id="cropsTableBody">
+
+                    {% if crops %}
+
+                        {% for crop in crops %}
+
+                        <tr class="crop-row" data-status="{{ crop.status }}" data-name="{{ crop.crop_name | lower }} {{ crop.farmer_name | lower }}">
+
+                            <td>
+                                {{ crop.crop_id }}
+                            </td>
+
+                            <td>
+                                {{ crop.crop_name }}
+                            </td>
+
+                            <td>
+                                {{ crop.farmer_name }}
+                            </td>
+
+                            <td>
+                                {{ crop.quantity_available }} KG
+                            </td>
+
+                            <td>
+                                ₹{{ crop.farmer_price }}/KG
+                            </td>
+
+                            {% if ai_enabled %}
+                            <td>
+
+                                <span class="badge bg-secondary">
+
+                                    {{ crop.quality_grade }}
+
+                                </span>
+
+                            </td>
+
+                            <td>
+
+                                {{ crop.freshness_score }}%
+
+                            </td>
+
+                            <td>
+
+                                {{ crop.demand_level }}
+
+                            </td>
+                            {% endif %}
+
+                            <td>
+
+                                {% if crop.status == 'available' %}
+
+                                <span class="badge bg-success">
+
+                                    Approved
+
+                                </span>
+
+                                {% elif crop.status == 'rejected' %}
+
+                                <span class="badge bg-danger">
+
+                                    Rejected
+
+                                </span>
+
+                                {% else %}
+
+                                <span class="badge bg-warning">
+
+                                    Pending
+
+                                </span>
+
+                                {% endif %}
+
+                            </td>
+
+                            <td>
+
+                                {% if crop.status != 'available' %}
+                                <a href="/admin/approve-crop/{{ crop.crop_id }}"
+                                   class="btn btn-success btn-sm">
+
+                                    Approve
+
+                                </a>
+                                {% endif %}
+
+                                {% if crop.status != 'rejected' %}
+                                <a href="/admin/reject-crop/{{ crop.crop_id }}"
+                                   class="btn btn-warning btn-sm">
+
+                                    Reject
+
+                                </a>
+                                {% endif %}
+
+                                <a href="/admin/delete-crop/{{ crop.crop_id }}"
+                                   class="btn btn-danger btn-sm">
+
+                                    Delete
+
+                                </a>
+
+                            </td>
+
+                        </tr>
+
+                        {% endfor %}
+
+                    {% else %}
+
+                    <tr>
+                        <td colspan="10" class="text-center text-muted py-4">
+                            No crops listed on the platform yet.
+                        </td>
+                    </tr>
+
+                    {% endif %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+    // Frontend search and filter logic
+    const searchInput = document.getElementById('cropSearch');
+    const statusFilter = document.getElementById('statusFilter');
+    const rows = document.querySelectorAll('.crop-row');
+
+    function filterCrops() {
+        const query = searchInput.value.toLowerCase();
+        const selectedStatus = statusFilter.value;
+
+        rows.forEach(row => {
+            const nameMatch = row.getAttribute('data-name').includes(query);
+            const statusMatch = !selectedStatus || row.getAttribute('data-status') === selectedStatus;
+
+            if (nameMatch && statusMatch) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    searchInput.addEventListener('input', filterCrops);
+    statusFilter.addEventListener('change', filterCrops);
+</script>
+
+</body>
+</html>

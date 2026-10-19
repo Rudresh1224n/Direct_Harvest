@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Revenue History | DirectHarvest AI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+</head>
+<body>
+
+{% include 'components/navbar.html' %}
+
+{% include 'components/sidebar.html' %}
+
+<div class="content-area">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h2 fw-bold text-success m-0"><i class="fa fa-chart-line me-2"></i> Farmer Revenue History Ledger</h1>
+            <span class="badge bg-success py-2 px-3 fs-6">Financial Ledger</span>
+        </div>
+        
+        <!-- Filters panel -->
+        <div class="card border-0 card-shadow p-4 mb-4">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label text-muted small fw-bold">Search Crop</label>
+                    <input type="text" id="searchRevenue" class="form-control" placeholder="Search product..." onkeyup="filterRevenueTable()">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted small fw-bold">Start Date</label>
+                    <input type="date" id="startDate" class="form-control" onchange="filterRevenueTable()">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted small fw-bold">End Date</label>
+                    <input type="date" id="endDate" class="form-control" onchange="filterRevenueTable()">
+                </div>
+                <div class="col-md-3 d-flex gap-2">
+                    <button class="btn btn-outline-success w-100 py-2" onclick="exportToCSV()"><i class="fa fa-file-csv me-1"></i> CSV Export</button>
+                    <button class="btn btn-success w-100 py-2" onclick="exportToExcel()"><i class="fa fa-file-excel me-1"></i> Excel Export</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Ledger Table -->
+        <div class="card border-0 card-shadow">
+            <div class="card-body p-4">
+                {% if revenues %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle" id="revenueLedgerTable">
+                            <thead>
+                                <tr class="text-muted small">
+                                    <th>Order ID</th>
+                                    <th>Product</th>
+                                    <th>Quantity</th>
+                                    <th>Selling Price</th>
+                                    <th class="text-end">Net Revenue (₹)</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in revenues %}
+                                    <tr class="ledger-row" data-name="{{ item.crop_name }}" data-date="{{ item.date.split(' ')[0] }}">
+                                        <td><strong>#{{ item.order_id }}</strong></td>
+                                        <td class="fw-bold text-success">{{ item.crop_name }}</td>
+                                        <td>{{ item.quantity }} KG</td>
+                                        <td>₹{{ item.selling_price }}/KG</td>
+                                        <td class="text-end fw-bold text-success">₹{{ item.revenue }}</td>
+                                        <td class="text-muted small">{{ item.date }}</td>
+                                        <td>
+                                            <span class="badge bg-success rounded-pill py-2 px-3 small">{{ item.status }}</span>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <div class="fs-1 text-muted mb-3">📈</div>
+                        <h5 class="fw-bold text-muted">No Revenue Logged Yet</h5>
+                        <p class="text-muted small">Once your assigned orders are successfully delivered, net earnings logs will populate here.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+{% include 'components/footer.html' %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Filter & Export Ledger JS -->
+<script>
+    function filterRevenueTable() {
+        const query = document.getElementById("searchRevenue").value.toLowerCase();
+        const start = document.getElementById("startDate").value;
+        const end = document.getElementById("endDate").value;
+        
+        const rows = document.querySelectorAll(".ledger-row");
+        
+        rows.forEach(row => {
+            const name = row.dataset.name.toLowerCase();
+            const dateStr = row.dataset.date; // format YYYY-MM-DD
+            
+            let visible = true;
+            
+            if (query && !name.includes(query)) {
+                visible = false;
+            }
+            
+            if (visible && start && dateStr < start) {
+                visible = false;
+            }
+            
+            if (visible && end && dateStr > end) {
+                visible = false;
+            }
+            
+            row.style.display = visible ? "" : "none";
+        });
+    }
+    
+    function exportToCSV() {
+        let csv = [];
+        let rows = document.querySelectorAll("#revenueLedgerTable tr");
+        
+        for (let i = 0; i < rows.length; i++) {
+            if (rows[i].style.display === "none") continue;
+            let row = [], cols = rows[i].querySelectorAll("td, th");
+            
+            for (let j = 0; j < cols.length; j++) {
+                // Clean text
+                let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, "").replace(/(\s\s)/gm, " ");
+                data = data.replace(/"/g, '""');
+                row.push('"' + data + '"');
+            }
+            csv.push(row.join(","));
+        }
+        
+        let csvFile = new Blob([csv.join("\n")], {type: "text/csv"});
+        let downloadLink = document.createElement("a");
+        downloadLink.download = "revenue_ledger.csv";
+        downloadLink.href = window.URL.createObjectURL(csvFile);
+        downloadLink.style.display = "none";
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+    }
+    
+    function exportToExcel() {
+        let htmlTable = document.getElementById("revenueLedgerTable").outerHTML;
+        let blob = new Blob([htmlTable], {type: "application/vnd.ms-excel"});
+        let downloadLink = document.createElement("a");
+        downloadLink.download = "revenue_ledger.xls";
+        downloadLink.href = window.URL.createObjectURL(blob);
+        downloadLink.style.display = "none";
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+    }
+</script>
+
+</body>
+</html>

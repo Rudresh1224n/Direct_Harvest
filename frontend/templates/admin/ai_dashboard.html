@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Analytics Dashboard | Admin Panel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #f4f6f8;
+        }
+        .admin-card {
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            background: #ffffff;
+            border: none;
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid py-4">
+    <div class="admin-header d-flex justify-content-between align-items-center mb-4">
+        <h2>🧠 AI Analytics Dashboard</h2>
+        <div>
+            <a href="/admin/dashboard" class="btn btn-outline-secondary">Dashboard</a>
+        </div>
+    </div>
+
+    <!-- STATS ROW -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="admin-card text-center py-4">
+                <span class="text-muted d-block small mb-1">Total AI API Requests</span>
+                <h2 class="fw-bold text-success">{{ total_requests }}</h2>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="admin-card text-center py-4">
+                <span class="text-muted d-block small mb-1">API Success Rate</span>
+                <h2 class="fw-bold text-primary">{{ success_rate }}%</h2>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="admin-card text-center py-4">
+                <span class="text-muted d-block small mb-1">Average Confidence Score</span>
+                <h2 class="fw-bold text-warning">{{ avg_confidence }}%</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Most Demanded Crops -->
+        <div class="col-lg-6">
+            <div class="admin-card">
+                <h4 class="mb-4">Most Demanded Crops (AI Predicted)</h4>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Crop Name</th>
+                                <th>Category</th>
+                                <th>Suitability</th>
+                                <th>Demand Score</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if demanded_crops %}
+                                {% for crop in demanded_crops %}
+                                <tr>
+                                    <td><strong>{{ crop.crop_name }}</strong></td>
+                                    <td>{{ crop.category }}</td>
+                                    <td><span class="badge bg-success">{{ crop.market_suitability }}</span></td>
+                                    <td>{{ crop.demand_score }}% ({{ crop.demand_level }})</td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">No high demand crops recorded yet.</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Pricing Trends -->
+        <div class="col-lg-6">
+            <div class="admin-card">
+                <h4 class="mb-4">Farmer Pricing vs AI Mandi Suggestion</h4>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Crop Name</th>
+                                <th>Avg Farmer Price</th>
+                                <th>Avg Suggested Price</th>
+                                <th>Difference (Avg)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if price_trends %}
+                                {% for trend in price_trends %}
+                                {% set diff = trend.avg_farmer - trend.avg_suggested %}
+                                <tr>
+                                    <td><strong>{{ trend.crop_name }}</strong></td>
+                                    <td>₹{{ trend.avg_farmer | round(2) }}</td>
+                                    <td>₹{{ trend.avg_suggested | round(2) }}</td>
+                                    <td>
+                                        {% if diff > 0 %}
+                                            <span class="text-danger">+₹{{ diff | round(2) }} (High)</span>
+                                        {% else %}
+                                            <span class="text-success">-₹{{ (-diff) | round(2) }} (Optimal)</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">No pricing trends recorded yet.</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

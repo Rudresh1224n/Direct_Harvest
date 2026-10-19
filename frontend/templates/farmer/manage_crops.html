@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Manage Crops | DirectHarvest AI</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet">
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/dashboard.css') }}">
+
+    <style>
+
+        .crop-card{
+            border:none;
+            border-radius:15px;
+            box-shadow:0 5px 20px rgba(0,0,0,.08);
+            overflow:hidden;
+        }
+
+        .crop-image{
+            height:220px;
+            object-fit:cover;
+        }
+
+        .ai-box{
+            background:#f8f9fa;
+            padding:10px;
+            border-radius:10px;
+            margin-top:10px;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+{% include 'components/sidebar.html' %}
+
+<div class="main-content">
+
+    <div class="container-fluid">
+
+        <div class="d-flex justify-content-between align-items-center mb-4">
+
+            <h2>
+                🌾 Manage Crops
+            </h2>
+
+            <a href="/farmer/add-crop"
+               class="btn btn-success">
+
+                ➕ Add New Crop
+
+            </a>
+
+        </div>
+
+        <div class="row g-4">
+
+            {% if crops %}
+
+                {% for crop in crops %}
+
+                <div class="col-lg-4">
+
+                    <div class="card crop-card">
+
+                        <img src="{{ crop.crop_image }}"
+                             class="crop-image">
+
+                        <div class="card-body">
+
+                            <h4>
+                                {{ crop.crop_name }}
+                            </h4>
+
+                            <p>
+
+                                Available:
+                                {{ crop.quantity_available }} KG
+
+                            </p>
+
+                            <p>
+
+                                Price:
+                                ₹{{ crop.farmer_price }}/KG
+
+                            </p>
+
+                            {% if ai_enabled %}
+                            <div class="ai-box border border-light-subtle rounded-3 p-3 mt-3 bg-light shadow-sm">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <strong class="text-dark"><span class="me-1">🤖</span> AI Pricing Engine</strong>
+                                    <span class="badge rounded-pill bg-{{ crop.profit_class }} px-2 py-1">
+                                        {{ crop.profit_status }}
+                                    </span>
+                                </div>
+                                <hr class="my-2">
+                                
+                                <div class="row g-2 mb-2 align-items-center" style="font-size: 0.85rem;">
+                                    <div class="col-6">
+                                        <span class="text-muted d-block" style="font-size: 0.75rem;">AI Suggested</span>
+                                        <strong class="text-success fs-6">₹{{ crop.ai_suggested_price | round(2) }}</strong>
+                                    </div>
+                                    <div class="col-6">
+                                        <span class="text-muted d-block" style="font-size: 0.75rem;">Farmer Price</span>
+                                        <strong class="text-dark fs-6">₹{{ crop.farmer_price | round(2) }}</strong>
+                                    </div>
+                                </div>
+
+                                {% set diff = crop.farmer_price | float - crop.ai_suggested_price | float %}
+                                <div class="p-2 rounded-2 bg-white border border-light-subtle mb-2 d-flex justify-content-between align-items-center" style="font-size: 0.8rem;">
+                                    <span class="text-muted">Price Difference:</span>
+                                    {% if diff > 0 %}
+                                        <strong class="text-danger">+₹{{ diff | round(2) }}</strong>
+                                    {% elif diff < 0 %}
+                                        <strong class="text-info">-₹{{ (diff | abs) | round(2) }}</strong>
+                                    {% else %}
+                                        <strong class="text-success">₹0.00</strong>
+                                    {% endif %}
+                                </div>
+
+                                <div class="row g-2 mb-2 text-center" style="font-size: 0.75rem;">
+                                    <div class="col-4">
+                                        <div class="bg-white p-1 rounded border border-light-subtle">
+                                            <span class="text-muted d-block" style="font-size: 0.68rem;">Grade</span>
+                                            <strong class="text-primary">{{ crop.quality_grade }}</strong>
+                                        </div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="bg-white p-1 rounded border border-light-subtle">
+                                            <span class="text-muted d-block" style="font-size: 0.68rem;">Freshness</span>
+                                            <strong class="text-success">{{ crop.freshness_score }}%</strong>
+                                        </div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="bg-white p-1 rounded border border-light-subtle">
+                                            <span class="text-muted d-block" style="font-size: 0.68rem;">Demand</span>
+                                            <strong class="text-info">{{ crop.demand_level }}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {% if crop.profit_message %}
+                                <div class="mt-2 p-2 rounded bg-{{ crop.profit_class }}-subtle border border-{{ crop.profit_class }} text-dark" style="font-size: 0.78rem; font-weight: 500; border-radius: 8px; line-height: 1.3;">
+                                    {{ crop.profit_message | safe }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% else %}
+                            <div class="ai-box text-center py-3 text-muted border border-dashed rounded-3">
+                                🤖 AI Features Disabled
+                            </div>
+                            {% endif %}
+
+                            <hr>
+
+                            <div class="d-grid gap-2">
+
+                                <a href="/farmer/edit-crop/{{ crop.crop_id }}"
+                                   class="btn btn-warning">
+
+                                    Edit Crop
+
+                                </a>
+
+                                <a href="/farmer/delete-crop/{{ crop.crop_id }}"
+                                   class="btn btn-danger"
+                                   onclick="return confirm('Delete this crop?')">
+
+                                    Delete Crop
+
+                                </a>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                {% endfor %}
+
+            {% else %}
+
+            <div class="col-12 text-center py-5">
+                <div class="card card-shadow border-0 bg-white p-5 rounded-4 d-inline-block shadow-sm" style="max-width: 600px; border-radius: 20px;">
+                    <div class="fs-1 mb-3">🌾</div>
+                    <h3 class="fw-bold text-success mb-2">No Active Crops Listed</h3>
+                    <p class="text-muted mb-4">
+                        You currently have no crop listings registered in your agricultural inventory. 
+                        Start listing your fresh harvest to showcase them in the customer marketplace!
+                    </p>
+                    <a href="/farmer/add-crop" class="btn btn-success px-4 py-2 rounded-3 fw-bold">
+                        ➕ Add Your First Crop
+                    </a>
+                </div>
+            </div>
+
+            {% endif %}
+
+        </div>
+
+    </div>
+
+</div>
+
+</body>
+</html>

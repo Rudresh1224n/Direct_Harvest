@@ -1,0 +1,22 @@
+.admin-header{
+    background:#1b1b1b;
+    color:white;
+    padding:20px;
+}
+
+.admin-card{
+    background:white;
+    border-radius:15px;
+    padding:20px;
+    box-shadow:0 5px 20px rgba(0,0,0,0.08);
+}
+
+.admin-table{
+    width:100%;
+    background:white;
+}
+
+.admin-table th{
+    background:#2e7d32;
+    color:white;
+}

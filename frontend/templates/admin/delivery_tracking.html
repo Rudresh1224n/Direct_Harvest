@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Delivery Fleet Spectator | Head Office Admin</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <!-- Leaflet & OpenStreetMap for Live Spectating -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    {% if google_maps_api_key %}
+    <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=geometry"></script>
+    {% endif %}
+
+    <style>
+        :root {
+            --admin-fleet-primary: #0f766e;
+            --admin-fleet-dark: #0f172a;
+        }
+
+        body {
+            background-color: #f1f5f9;
+        }
+
+        .fleet-header {
+            background: linear-gradient(135deg, #042f2e 0%, #0f766e 100%);
+            color: white;
+            padding: 24px 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(15, 118, 110, 0.2);
+            margin-bottom: 25px;
+        }
+
+        .stat-card-fleet {
+            background: white;
+            border-radius: 14px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            border-left: 5px solid #0f766e;
+            transition: transform 0.2s;
+        }
+        .stat-card-fleet:hover {
+            transform: translateY(-3px);
+        }
+
+        .radar-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #dcfce7;
+            color: #15803d;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 20px;
+            border: 1px solid #86efac;
+        }
+        .radar-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #22c55e;
+            border-radius: 50%;
+            animation: radar-pulse 1.4s infinite;
+        }
+        @keyframes radar-pulse {
+            0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+            100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+
+        .table-fleet th {
+            background-color: #f8fafc;
+            color: #475569;
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #e2e8f0;
+            padding: 14px 16px;
+        }
+        .table-fleet td {
+            vertical-align: middle;
+            padding: 14px 16px;
+            font-size: 0.9rem;
+        }
+
+        .package-thumb {
+            width: 52px;
+            height: 52px;
+            object-fit: cover;
+            border-radius: 10px;
+            border: 2px solid #10b981;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .package-thumb:hover {
+            transform: scale(1.15);
+        }
+
+        .spectate-btn {
+            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+            color: white;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 16px;
+            transition: all 0.2s;
+            box-shadow: 0 4px 10px rgba(2, 132, 199, 0.25);
+        }
+        .spectate-btn:hover {
+            background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(2, 132, 199, 0.35);
+        }
+
+        /* Spectator Modal Map */
+        #spectatorMap {
+            height: 480px;
+            width: 100%;
+            border-radius: 16px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.15);
+        }
+
+        .telemetry-chip {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px 16px;
+        }
+
+        .step-pill {
+            font-size: 0.78rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid py-4 px-lg-5">
+
+    <!-- Top Bar Navigation -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <a href="/admin/dashboard" class="btn btn-outline-secondary btn-sm">
+            <i class="fa fa-arrow-left me-1"></i> Back to Admin Dashboard
+        </a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="radar-badge">
+                <span class="radar-dot"></span> Head Office Fleet Radar: LIVE
+            </span>
+            <span class="badge bg-light text-dark border">
+                Admin: {{ session.get('user_name', 'Head Office') }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Header Banner -->
+    <div class="fleet-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+            <h2 class="fw-bold mb-1"><i class="fa fa-satellite-dish me-2"></i> Delivery Fleet & Live Spectator Cockpit</h2>
+            <p class="mb-0 text-white-50">
+                Track delivery riders in real-time, spectate live routes from farm to consumer, and verify package dispatch photos for Head Office.
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-light text-dark fw-bold" onclick="refreshFleetData()">
+                <i class="fa fa-rotate me-1" id="refreshIcon"></i> Refresh Fleet
+            </button>
+        </div>
+    </div>
+
+    <!-- Summary Metrics -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-6">
+            <div class="stat-card-fleet">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small fw-bold">ACTIVE DELIVERIES</div>
+                        <h2 class="fw-bold text-success mb-0" id="metricActiveDeliveries">{{ active_deliveries_count }}</h2>
+                    </div>
+                    <div class="bg-success bg-opacity-10 text-success p-3 rounded-circle">
+                        <i class="fa fa-motorcycle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-card-fleet" style="border-left-color: #0284c7;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small fw-bold">TOTAL REGISTERED RIDERS</div>
+                        <h2 class="fw-bold text-primary mb-0">{{ total_riders_count }}</h2>
+                    </div>
+                    <div class="bg-primary bg-opacity-10 text-primary p-3 rounded-circle">
+                        <i class="fa fa-users fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-card-fleet" style="border-left-color: #10b981;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small fw-bold">DELIVERED ORDERS</div>
+                        <h2 class="fw-bold text-success mb-0">{{ completed_today_count }}</h2>
+                    </div>
+                    <div class="bg-success bg-opacity-10 text-success p-3 rounded-circle">
+                        <i class="fa fa-circle-check fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-card-fleet" style="border-left-color: #f59e0b;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small fw-bold">FLEET RADAR STATUS</div>
+                        <h5 class="fw-bold text-warning mb-0 mt-2">OSRM + GPS Active</h5>
+                    </div>
+                    <div class="bg-warning bg-opacity-10 text-warning p-3 rounded-circle">
+                        <i class="fa fa-map-location-dot fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Deliveries Table -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-5">
+        <div class="card-header bg-white py-3 px-4 d-flex justify-content-between align-items-center border-bottom">
+            <h5 class="fw-bold mb-0 text-dark">
+                <i class="fa fa-list-check text-success me-2"></i> Active Assigned Deliveries & Riders
+            </h5>
+            <span class="badge bg-light text-muted border px-3 py-2">
+                Auto-syncing every 5s
+            </span>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-fleet align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Order #</th>
+                        <th>Assigned Delivery Boy</th>
+                        <th>Crop & Qty</th>
+                        <th>Farmer Pickup (Origin)</th>
+                        <th>Consumer Drop-off</th>
+                        <th>Current Milestone</th>
+                        <th>Package Photo (Head Office)</th>
+                        <th class="text-end">Live Spectate</th>
+                    </tr>
+                </thead>
+                <tbody id="fleetTableBody">
+                    {% if fleet_riders %}
+                        {% for r in fleet_riders %}
+                        <tr id="fleet-row-{{ r.order_id }}" data-order-id="{{ r.order_id }}">
+                            <td>
+                                <span class="fw-bold text-dark">#{{ r.order_id }}</span>
+                                <div class="text-muted small">₹{{ "%.2f"|format(r.total_amount) }}</div>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="avatar-circle bg-success text-white fw-bold rounded-circle d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; font-size: 0.9rem;">
+                                        {{ r.rider_name[:1] }}
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold text-dark">{{ r.rider_name }}</div>
+                                        <div class="text-muted small">
+                                            <i class="fa fa-phone me-1"></i>{{ r.rider_phone }} &bull; <i class="fa fa-motorcycle ms-1 me-1"></i>{{ r.vehicle_type }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-success bg-opacity-10 text-success fw-bold px-2 py-1">
+                                    {{ r.crop_name }}
+                                </span>
+                                <div class="small text-muted mt-1">{{ r.quantity }} {{ r.unit }}</div>
+                            </td>
+                            <td>
+                                <div class="fw-semibold text-dark">{{ r.farmer_name }}</div>
+                                <div class="text-muted small text-truncate" style="max-width: 170px;" title="{{ r.farmer_address }}">
+                                    <i class="fa fa-location-dot text-danger me-1"></i>{{ r.farmer_address }}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="fw-semibold text-dark">{{ r.consumer_name }}</div>
+                                <div class="text-muted small text-truncate" style="max-width: 170px;" title="{{ r.consumer_address }}">
+                                    <i class="fa fa-home text-primary me-1"></i>{{ r.consumer_address }}
+                                </div>
+                            </td>
+                            <td>
+                                {% if r.delivery_step == 'delivered' %}
+                                    <span class="badge bg-success step-pill"><i class="fa fa-check-circle me-1"></i> Delivered</span>
+                                {% elif r.delivery_step == 'rider_arrived' %}
+                                    <span class="badge bg-primary step-pill"><i class="fa fa-flag-checkered me-1"></i> Rider Arrived</span>
+                                {% elif r.delivery_step == 'about_to_arrive' %}
+                                    <span class="badge bg-info text-dark step-pill"><i class="fa fa-bell me-1"></i> About to Arrive</span>
+                                {% elif r.delivery_step == 'out_for_delivery' %}
+                                    <span class="badge bg-warning text-dark step-pill"><i class="fa fa-truck-fast me-1"></i> Out for Delivery</span>
+                                {% elif r.delivery_step == 'package_picked' %}
+                                    <span class="badge bg-primary step-pill"><i class="fa fa-box-check me-1"></i> Photo Verified</span>
+                                {% elif r.delivery_step == 'order_packing' %}
+                                    <span class="badge bg-secondary step-pill"><i class="fa fa-box-open me-1"></i> Packing</span>
+                                {% elif r.delivery_step == 'heading_to_farmer' %}
+                                    <span class="badge bg-info text-dark step-pill"><i class="fa fa-person-biking me-1"></i> Reaching Farmer</span>
+                                {% else %}
+                                    <span class="badge bg-secondary step-pill"><i class="fa fa-handshake me-1"></i> Rider Accepted</span>
+                                {% endif %}
+                                <div class="small text-muted mt-1">{{ r.step_description }}</div>
+                            </td>
+                            <td>
+                                {% if r.package_photo %}
+                                    <div class="d-flex align-items-center gap-2">
+                                        <img src="{{ r.package_photo }}" class="package-thumb" alt="Package Photo" onclick="previewPackagePhoto('{{ r.package_photo }}', 'Order #{{ r.order_id }}')">
+                                        <div>
+                                            <span class="badge bg-success" style="font-size: 0.72rem;"><i class="fa fa-check me-1"></i> Received</span>
+                                            <div class="text-muted small" style="font-size: 0.68rem;">{{ r.package_photo_at or 'Verified' }}</div>
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <span class="badge bg-light text-muted border" style="font-size: 0.75rem;">
+                                        <i class="fa fa-clock me-1 text-warning"></i> Awaiting Farm Photo
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <button class="spectate-btn" onclick="openSpectatorModal({{ r.order_id }})">
+                                    <i class="fa fa-eye me-1"></i> Spectate
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <i class="fa fa-motorcycle fa-3x text-muted mb-3 d-block opacity-50"></i>
+                                <h5>No Active Delivery Orders Right Now</h5>
+                                <p class="small text-muted mb-0">When consumers place orders and riders accept them, they will appear here with live spectating telemetry.</p>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ================= SPECTATOR COCKPIT MODAL ================= -->
+<div class="modal fade" id="spectatorModal" tabindex="-1" aria-labelledby="spectatorModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow-lg overflow-hidden">
+            <!-- Modal Header -->
+            <div class="modal-header bg-dark text-white px-4 py-3">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="radar-badge bg-success text-white border-0">
+                        <span class="radar-dot bg-white"></span> SPECTATING LIVE
+                    </span>
+                    <h5 class="modal-title fw-bold mb-0" id="spectatorModalLabel">
+                        Live Cockpit: Order #<span id="specOrderId">--</span>
+                    </h5>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" onclick="closeSpectator()"></button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="modal-body p-4 bg-light">
+                <div class="row g-3">
+                    <!-- Left Column: Map & Controls -->
+                    <div class="col-lg-8">
+                        <div class="card border-0 rounded-4 overflow-hidden shadow-sm">
+                            <div id="spectatorMap"></div>
+                        </div>
+
+                        <!-- Telemetry Stats -->
+                        <div class="row g-2 mt-2">
+                            <div class="col-sm-4">
+                                <div class="telemetry-chip bg-white text-center">
+                                    <div class="text-muted small fw-bold">DISTANCE TO TARGET</div>
+                                    <h4 class="fw-bold text-primary mb-0 mt-1" id="specDistance">-- km</h4>
+                                </div>
+                            </div>
+                            <div class="col-sm-4">
+                                <div class="telemetry-chip bg-white text-center">
+                                    <div class="text-muted small fw-bold">ESTIMATED ETA</div>
+                                    <h4 class="fw-bold text-success mb-0 mt-1" id="specEta">-- mins</h4>
+                                </div>
+                            </div>
+                            <div class="col-sm-4">
+                                <div class="telemetry-chip bg-white text-center">
+                                    <div class="text-muted small fw-bold">GPS LAST PING</div>
+                                    <h6 class="fw-bold text-dark mb-0 mt-2" id="specLastPing">Active</h6>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Rider & Order Details & Package Photo -->
+                    <div class="col-lg-4">
+                        <!-- Rider Profile Card -->
+                        <div class="card border-0 rounded-4 shadow-sm p-3 mb-3 bg-white">
+                            <div class="d-flex align-items-center gap-3 mb-3">
+                                <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 48px; height: 48px; font-size: 1.2rem;" id="specRiderInitial">
+                                    R
+                                </div>
+                                <div>
+                                    <h6 class="fw-bold mb-0" id="specRiderName">Delivery Partner</h6>
+                                    <span class="badge bg-light text-dark border small" id="specVehicle">Vehicle: Bike</span>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded-3 mb-2">
+                                <span class="small text-muted"><i class="fa fa-phone me-1"></i> Rider Contact:</span>
+                                <a href="#" id="specRiderPhoneLink" class="fw-bold text-decoration-none small text-success">
+                                    <span id="specRiderPhone">--</span>
+                                </a>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded-3">
+                                <span class="small text-muted"><i class="fa fa-user me-1"></i> Customer:</span>
+                                <span class="fw-bold small text-dark" id="specConsumerName">--</span>
+                            </div>
+                        </div>
+
+                        <!-- Milestone Progression Card -->
+                        <div class="card border-0 rounded-4 shadow-sm p-3 mb-3 bg-white">
+                            <h6 class="fw-bold text-dark mb-2"><i class="fa fa-stairs text-primary me-2"></i> Current Status Milestone</h6>
+                            <div class="p-3 bg-light rounded-3">
+                                <div class="badge bg-primary mb-2" id="specStepBadge">Step Active</div>
+                                <div class="small fw-semibold text-dark" id="specStepDesc">--</div>
+                            </div>
+                        </div>
+
+                        <!-- Head Office Package Verification Card -->
+                        <div class="card border-0 rounded-4 shadow-sm p-3 bg-white">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="fw-bold text-dark mb-0">
+                                    <i class="fa fa-camera text-success me-1"></i> Farm Package Photo
+                                </h6>
+                                <span class="badge bg-success" id="specPhotoStatus">Verified</span>
+                            </div>
+                            <p class="text-muted small mb-2">
+                                Photo captured by rider at farm pickup before leaving for customer destination.
+                            </p>
+                            <div class="text-center p-2 bg-light rounded-3" id="specPhotoContainer">
+                                <img src="" id="specPackageImg" class="img-fluid rounded-3 shadow-sm" style="max-height: 180px; display: none;" alt="Package Photo">
+                                <div id="specNoPhotoMsg" class="py-4 text-muted small">
+                                    <i class="fa fa-clock fa-2x mb-2 d-block text-warning"></i>
+                                    Awaiting package photo upload from rider...
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Google Maps Navigation Link for Rider/Admin -->
+                        <div class="mt-3">
+                            <a href="#" target="_blank" id="specGmapsLink" class="btn btn-outline-success w-100 fw-bold">
+                                <i class="fa fa-map-location-dot me-1"></i> View Route on Google Maps
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================= PACKAGE PHOTO PREVIEW MODAL ================= -->
+<div class="modal fade" id="photoPreviewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="photoPreviewTitle">Package Photo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center p-4">
+                <img src="" id="photoPreviewImg" class="img-fluid rounded-3 shadow-sm" style="max-height: 450px;" alt="Package Verification">
+                <div class="mt-3 text-muted small">
+                    <i class="fa fa-shield-check text-success me-1"></i> Verified by Head Office Dispatch
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    let spectatorMap = null;
+    let riderMarker = null;
+    let farmMarker = null;
+    let consumerMarker = null;
+    let routeLine = null;
+    let currentSpectateOrderId = null;
+    let spectatePollInterval = null;
+
+    // Custom Map Icons
+    const riderIcon = L.divIcon({
+        className: 'custom-rider-icon',
+        html: `<div style="background:#0f766e; color:white; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 0 15px rgba(15,118,110,0.8); border:3px solid white; font-size:18px;"><i class="fa fa-motorcycle"></i></div>`,
+        iconSize: [40, 40],
+        iconAnchor: [20, 20]
+    });
+
+    const farmIcon = L.divIcon({
+        className: 'custom-farm-icon',
+        html: `<div style="background:#16a34a; color:white; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 0 10px rgba(22,163,74,0.6); border:2px solid white; font-size:16px;"><i class="fa fa-wheat-awn"></i></div>`,
+        iconSize: [36, 36],
+        iconAnchor: [18, 18]
+    });
+
+    const consumerIcon = L.divIcon({
+        className: 'custom-home-icon',
+        html: `<div style="background:#2563eb; color:white; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 0 10px rgba(37,99,235,0.6); border:2px solid white; font-size:16px;"><i class="fa fa-house"></i></div>`,
+        iconSize: [36, 36],
+        iconAnchor: [18, 18]
+    });
+
+    function initSpectatorMap() {
+        if (!spectatorMap) {
+            spectatorMap = L.map('spectatorMap').setView([22.7196, 75.8577], 12);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(spectatorMap);
+        }
+    }
+
+    async function openSpectatorModal(orderId) {
+        currentSpectateOrderId = orderId;
+        const modalEl = document.getElementById('spectatorModal');
+        const bsModal = new bootstrap.Modal(modalEl);
+        bsModal.show();
+
+        modalEl.addEventListener('shown.bs.modal', function () {
+            initSpectatorMap();
+            spectatorMap.invalidateSize();
+            loadTelemetry(orderId);
+        }, { once: true });
+
+        // Start polling telemetry every 3 seconds for live spectator tracking
+        if (spectatePollInterval) clearInterval(spectatePollInterval);
+        spectatePollInterval = setInterval(() => {
+            if (currentSpectateOrderId) {
+                loadTelemetry(currentSpectateOrderId);
+            }
+        }, 3000);
+    }
+
+    function closeSpectator() {
+        if (spectatePollInterval) {
+            clearInterval(spectatePollInterval);
+            spectatePollInterval = null;
+        }
+        currentSpectateOrderId = null;
+    }
+
+    async function loadTelemetry(orderId) {
+        try {
+            const res = await fetch(`/api/delivery/order/${orderId}/live-tracking`);
+            const data = await res.json();
+            if (!data.success) return;
+
+            const t = data.telemetry;
+            document.getElementById('specOrderId').innerText = orderId;
+            document.getElementById('specRiderName').innerText = t.rider.name || 'Delivery Partner';
+            document.getElementById('specRiderInitial').innerText = (t.rider.name || 'R').charAt(0);
+            document.getElementById('specRiderPhone').innerText = t.rider.phone || 'N/A';
+            document.getElementById('specRiderPhoneLink').href = `tel:${t.rider.phone || ''}`;
+            document.getElementById('specConsumerName').innerText = t.consumer.name || 'Customer';
+            document.getElementById('specDistance').innerText = `${t.distance_km || 0} km`;
+            document.getElementById('specEta').innerText = `${t.eta_minutes || 0} mins`;
+            document.getElementById('specStepDesc').innerText = t.step_description || t.status;
+            document.getElementById('specStepBadge').innerText = (t.delivery_step || t.status).toUpperCase();
+
+            // Package Photo Head Office verification
+            const imgEl = document.getElementById('specPackageImg');
+            const noPhotoMsg = document.getElementById('specNoPhotoMsg');
+            const photoStatusBadge = document.getElementById('specPhotoStatus');
+
+            if (t.package_photo) {
+                imgEl.src = t.package_photo;
+                imgEl.style.display = 'inline-block';
+                noPhotoMsg.style.display = 'none';
+                photoStatusBadge.className = 'badge bg-success';
+                photoStatusBadge.innerHTML = '<i class="fa fa-check-double me-1"></i> Verified & Received';
+            } else {
+                imgEl.style.display = 'none';
+                noPhotoMsg.style.display = 'block';
+                photoStatusBadge.className = 'badge bg-warning text-dark';
+                photoStatusBadge.innerHTML = '<i class="fa fa-clock me-1"></i> Awaiting Upload';
+            }
+
+            // Google Maps Link
+            if (t.google_maps_url) {
+                document.getElementById('specGmapsLink').href = t.google_maps_url;
+            }
+
+            // Update Map Pins & Route
+            if (spectatorMap) {
+                const riderPos = [t.rider.lat, t.rider.lng];
+                const farmPos = [t.farmer.lat, t.farmer.lng];
+                const consumerPos = [t.consumer.lat, t.consumer.lng];
+
+                if (!riderMarker) {
+                    riderMarker = L.marker(riderPos, { icon: riderIcon }).addTo(spectatorMap).bindPopup(`<b>${t.rider.name}</b> (Live Position)`);
+                } else {
+                    riderMarker.setLatLng(riderPos);
+                }
+
+                if (!farmMarker) {
+                    farmMarker = L.marker(farmPos, { icon: farmIcon }).addTo(spectatorMap).bindPopup(`<b>Farm Pickup:</b> ${t.farmer.name}`);
+                }
+
+                if (!consumerMarker) {
+                    consumerMarker = L.marker(consumerPos, { icon: consumerIcon }).addTo(spectatorMap).bindPopup(`<b>Destination:</b> ${t.consumer.name}`);
+                }
+
+                // Render Route Polyline
+                const routePoints = [riderPos, farmPos, consumerPos];
+                if (!routeLine) {
+                    routeLine = L.polyline(routePoints, {
+                        color: '#0f766e',
+                        weight: 5,
+                        opacity: 0.8,
+                        dashArray: '8, 8'
+                    }).addTo(spectatorMap);
+                } else {
+                    routeLine.setLatLngs(routePoints);
+                }
+
+                spectatorMap.fitBounds(L.latLngBounds(routePoints), { padding: [40, 40] });
+            }
+        } catch (err) {
+            console.error("Telemetry load failed:", err);
+        }
+    }
+
+    function previewPackagePhoto(src, title) {
+        document.getElementById('photoPreviewImg').src = src;
+        document.getElementById('photoPreviewTitle').innerText = title + ' - Farm Package Dispatch Photo';
+        const m = new bootstrap.Modal(document.getElementById('photoPreviewModal'));
+        m.show();
+    }
+
+    async function refreshFleetData() {
+        const icon = document.getElementById('refreshIcon');
+        if (icon) icon.classList.add('fa-spin');
+        try {
+            const res = await fetch('/admin/api/fleet-status');
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('metricActiveDeliveries').innerText = data.count;
+            }
+        } catch (e) {
+            console.error("Fleet sync error:", e);
+        } finally {
+            if (icon) icon.classList.remove('fa-spin');
+        }
+    }
+
+    // Auto-refresh fleet table count every 15s
+    setInterval(refreshFleetData, 15000);
+</script>
+
+</body>
+</html>

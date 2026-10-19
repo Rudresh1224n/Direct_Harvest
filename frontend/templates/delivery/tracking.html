@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rider Live Navigation & Delivery Cockpit | DirectHarvest AI</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <!-- Leaflet & OpenStreetMap CSS/JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    {% if google_maps_api_key %}
+    <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=geometry"></script>
+    {% endif %}
+
+    <style>
+        :root {
+            --rider-primary: #108a00;
+            --rider-dark: #0f172a;
+        }
+
+        #navMap {
+            height: 480px;
+            width: 100%;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            border: 1px solid #e2e8f0;
+        }
+
+        .step-node-box {
+            border-radius: 14px;
+            border: 2px solid #e2e8f0;
+            padding: 12px 16px;
+            margin-bottom: 10px;
+            background: white;
+            transition: all 0.3s;
+        }
+
+        .step-node-box.active {
+            border-color: #0284c7;
+            background: #f0f9ff;
+        }
+
+        .step-node-box.completed {
+            border-color: #10b981;
+            background: #f0fdf4;
+        }
+
+        .pulse-loc {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #10b981;
+            display: inline-block;
+            box-shadow: 0 0 10px #10b981;
+            animation: pulse-ring 1.5s infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+    </style>
+</head>
+<body>
+
+{% include 'components/navbar.html' %}
+{% include 'components/sidebar.html' %}
+
+<div class="content-area">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="pulse-loc"></span>
+                <span class="badge bg-success bg-opacity-10 text-success fw-bold">GPS ACTIVE TURN-BY-TURN</span>
+            </div>
+            <h2 class="fw-bold text-dark mt-1 mb-0">
+                <i class="fa fa-route text-success me-2"></i> Navigation Cockpit &bull; Order #{{ order.order_id }}
+            </h2>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ telemetry.google_maps_url }}" target="_blank" class="btn btn-outline-success fw-bold">
+                <i class="fa fa-map-location-dot me-1"></i> Open in Google Maps App
+            </a>
+            <a href="/delivery/dashboard" class="btn btn-outline-secondary">
+                <i class="fa fa-arrow-left me-1"></i> Rider Home
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Map & Telemetry Column -->
+        <div class="col-lg-8">
+            <div class="card border-0 card-shadow overflow-hidden mb-4">
+                <div id="navMap"></div>
+            </div>
+
+            <!-- Turn by Turn Quick Bar -->
+            <div class="card border-0 card-shadow p-3 bg-white mb-4">
+                <div class="row g-3 text-center">
+                    <div class="col-4 border-end">
+                        <div class="text-muted small fw-bold">ESTIMATED TIME</div>
+                        <h4 class="fw-bold text-success mb-0" id="liveEtaText">{{ telemetry.eta_minutes }} mins</h4>
+                    </div>
+                    <div class="col-4 border-end">
+                        <div class="text-muted small fw-bold">DISTANCE TO TARGET</div>
+                        <h4 class="fw-bold text-primary mb-0" id="liveDistText">{{ telemetry.distance_km }} km</h4>
+                    </div>
+                    <div class="col-4">
+                        <div class="text-muted small fw-bold">TARGET DESTINATION</div>
+                        <h6 class="fw-bold text-dark mb-0 mt-1" id="liveTargetText">
+                            {% if order.delivery_step in ['heading_to_farmer', 'order_packing', 'assigned', 'rider_accepted'] %}
+                                Farm Pickup (Farmer)
+                            {% else %}
+                                Doorstep (Consumer)
+                            {% endif %}
+                        </h6>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Locations Info -->
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="card border-0 card-shadow p-3 bg-white h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="badge bg-success"><i class="fa fa-wheat-awn me-1"></i> Pickup (Farmer)</span>
+                            <a href="tel:{{ order.farmer.phone if order.farmer else '' }}" class="btn btn-sm btn-outline-success py-0">
+                                <i class="fa fa-phone me-1"></i> Call
+                            </a>
+                        </div>
+                        <h6 class="fw-bold mb-1">{{ order.farmer.full_name if order.farmer else 'Farmer' }}</h6>
+                        <p class="text-muted small mb-0">{{ order.farmer.address if order.farmer else 'Farm location' }}</p>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border-0 card-shadow p-3 bg-white h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="badge bg-primary"><i class="fa fa-house me-1"></i> Drop-off (Consumer)</span>
+                            <a href="tel:{{ order.consumer.phone if order.consumer else '' }}" class="btn btn-sm btn-outline-primary py-0">
+                                <i class="fa fa-phone me-1"></i> Call
+                            </a>
+                        </div>
+                        <h6 class="fw-bold mb-1">{{ order.consumer.full_name if order.consumer else 'Consumer' }}</h6>
+                        <p class="text-muted small mb-0">{{ order.delivery_address }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 7-Step Progression Actions Column -->
+        <div class="col-lg-4">
+            <div class="card border-0 card-shadow h-100">
+                <div class="card-body p-4">
+                    <h5 class="fw-bold text-dark mb-1">Trip Progression</h5>
+                    <p class="text-muted small mb-3">Notify the customer step-by-step as you progress.</p>
+                    <hr>
+
+                    <!-- Step 1: Rider Accepted -->
+                    <div class="step-node-box {% if order.delivery_step != 'assigned' %}completed{% else %}active{% endif %}" id="rbox_rider_accepted">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="fw-bold mb-0">1. Rider Accepted</h6>
+                                <small class="text-muted">Order assignment confirmed</small>
+                            </div>
+                            <i class="fa fa-circle-check text-success fs-5"></i>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: On way to farmer -->
+                    <div class="step-node-box {% if order.delivery_step in ['heading_to_farmer', 'order_packing', 'package_picked', 'out_for_delivery', 'about_to_arrive', 'rider_arrived', 'delivered'] %}completed{% elif order.delivery_step == 'rider_accepted' %}active{% endif %}" id="rbox_heading_to_farmer">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <h6 class="fw-bold mb-0">2. On Way to Farmer</h6>
+                                <small class="text-muted">Traveling to farm pickup</small>
+                            </div>
+                            <span class="badge bg-light text-dark border">Step 2</span>
+                        </div>
+                        {% if order.delivery_step in ['assigned', 'rider_accepted'] %}
+                        <button class="btn btn-primary btn-sm w-100 fw-bold" onclick="advanceRiderStep('heading_to_farmer')">
+                            <i class="fa fa-motorcycle me-1"></i> I'm On The Way to Farmer
+                        </button>
+                        {% endif %}
+                    </div>
+
+                    <!-- Step 3: Order packing -->
+                    <div class="step-node-box {% if order.delivery_step in ['order_packing', 'package_picked', 'out_for_delivery', 'about_to_arrive', 'rider_arrived', 'delivered'] %}completed{% elif order.delivery_step == 'heading_to_farmer' %}active{% endif %}" id="rbox_order_packing">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <h6 class="fw-bold mb-0">3. Order Getting Packed</h6>
+                                <small class="text-muted">Farmer packing produce</small>
+                            </div>
+                            <span class="badge bg-light text-dark border">Step 3</span>
+                        </div>
+                        {% if order.delivery_step == 'heading_to_farmer' %}
+                        <button class="btn btn-warning btn-sm w-100 fw-bold" onclick="advanceRiderStep('order_packing')">
+                            <i class="fa fa-box me-1"></i> Reached Farm & Packing
+                        </button>
+                        {% endif %}
+                    </div>
+
+                    <!-- Step 4: Package Picked & Photo Upload -->
+                    <div class="step-node-box {% if order.delivery_step in ['package_picked', 'out_for_delivery', 'about_to_arrive', 'rider_arrived', 'delivered'] %}completed{% elif order.delivery_step == 'order_packing' %}active{% endif %}" id="rbox_package_picked">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <h6 class="fw-bold mb-0">4. Picked & Package Photo</h6>
+                                <small class="text-muted">Send photo to Head Office</small>
+                            </div>
+                            <span class="badge bg-light text-dark border">Step 4</span>
+                        </div>
+                        {% if order.package_photo %}
+                            <div class="d-flex align-items-center gap-2 mt-2">
+                                <img src="{{ order.package_photo }}" alt="Package" style="width: 48px; height: 48px; object-fit: cover; border-radius: 8px;">
+                                <span class="badge bg-success"><i class="fa fa-check me-1"></i> Photo Sent to Head Office</span>
+                            </div>
+                        {% else %}
+                            <button class="btn btn-outline-success btn-sm w-100 fw-bold mt-1" onclick="openPhotoModal()">
+                                <i class="fa fa-camera me-1"></i> Upload Package Photo to Head Office
+                            </button>
+                        {% endif %}
+                    </div>
+
+                    <!-- Step 5: Delivering to consumer (Locked until photo uploaded) -->
+                    <div class="step-node-box {% if order.delivery_step in ['out_for_delivery', 'about_to_arrive', 'rider_arrived', 'delivered'] %}completed{% elif order.delivery_step == 'package_picked' %}active{% endif %}" id="rbox_out_for_delivery">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <h6 class="fw-bold mb-0">5. Delivering to Address</h6>
+                                <small class="text-muted">Locked until photo uploaded</small>
+                            </div>
+                            <span class="badge bg-light text-dark border">Step 5</span>
+                        </div>
+                        {% if order.delivery_step in ['order_packing', 'package_picked'] %}
+                        <button class="btn btn-success btn-sm w-100 fw-bold" id="btnDeliverToHome" {% if not order.package_photo %}disabled title="Upload package photo first"{% endif %} onclick="advanceRiderStep('out_for_delivery')">
+                            <i class="fa fa-truck-fast me-1"></i> Delivering Order to Address
+                        </button>
+                        {% if not order.package_photo %}
+                        <div class="text-danger small mt-1"><i class="fa fa-lock me-1"></i> Photo required before starting</div>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+
+                    <!-- Step 6: Rider about to arrive -->
+                    <div class="step-node-box {% if order.delivery_step in ['about_to_arrive', 'rider_arrived', 'delivered'] %}completed{% elif order.delivery_step == 'out_for_delivery' %}active{% endif %}" id="rbox_about_to_arrive">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <h6 class="fw-bold mb-0">6. About to Arrive</h6>
+                                <small class="text-muted">Notify consumer to be ready</small>
+                            </div>
+                            <span class="badge bg-light text-dark border">Step 6</span>
+                        </div>
+                        {% if order.delivery_step == 'out_for_delivery' %}
+                        <button class="btn btn-info text-white btn-sm w-100 fw-bold" onclick="advanceRiderStep('about_to_arrive')">
+                            <i class="fa fa-bell me-1"></i> I am About to Arrive
+                        </button>
+                        {% endif %}
+                    </div>
+
+                    <!-- Step 7: Arrived & Complete Delivery -->
+                    <div class="step-node-box {% if order.delivery_step == 'delivered' %}completed{% elif order.delivery_step in ['about_to_arrive', 'rider_arrived'] %}active{% endif %}" id="rbox_delivered">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <h6 class="fw-bold mb-0">7. Arrived & Handover</h6>
+                                <small class="text-muted">Enter Consumer OTP</small>
+                            </div>
+                            <span class="badge bg-light text-dark border">Step 7</span>
+                        </div>
+                        {% if order.delivery_step in ['about_to_arrive', 'rider_arrived'] %}
+                        <div class="input-group input-group-sm mb-2">
+                            <input type="text" id="deliveryOtpInput" class="form-control" placeholder="Enter Consumer OTP">
+                            <button class="btn btn-success fw-bold" onclick="completeDeliveryWithOtp()">
+                                <i class="fa fa-check me-1"></i> Deliver
+                            </button>
+                        </div>
+                        {% elif order.delivery_step == 'delivered' %}
+                        <span class="badge bg-success w-100 py-2"><i class="fa fa-circle-check me-1"></i> Order Delivered Successfully!</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================= PACKAGE PHOTO UPLOAD MODAL ================= -->
+<div class="modal fade" id="navPhotoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title fw-bold"><i class="fa fa-camera me-2"></i> Upload Package Photo to Head Office</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <p class="text-muted small mb-3">
+                    Capture or upload a clear photo of the packed harvest at the farm. This sends verification to Head Office and unlocks the next step: "Delivering the order to your address".
+                </p>
+                <input type="file" id="navPhotoFileInput" accept="image/*" capture="environment" class="form-control mb-3">
+                <div id="navPhotoPreview" style="display: none;" class="mb-3">
+                    <img id="navPhotoPreviewImg" src="" class="img-fluid rounded-3 shadow-sm" style="max-height: 220px;">
+                </div>
+                <button class="btn btn-success w-100 fw-bold py-2" id="navBtnSubmitPhoto" onclick="submitPackagePhotoNav()">
+                    <i class="fa fa-paper-plane me-1"></i> Submit Photo to Head Office
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include 'components/footer.html' %}
+
+<script>
+    const ORDER_ID = {{ order.order_id }};
+    const RIDER_LAT = {{ telemetry.rider.lat }};
+    const RIDER_LNG = {{ telemetry.rider.lng }};
+    const FARM_LAT = {{ telemetry.farmer.lat }};
+    const FARM_LNG = {{ telemetry.farmer.lng }};
+    const CONSUMER_LAT = {{ telemetry.consumer.lat }};
+    const CONSUMER_LNG = {{ telemetry.consumer.lng }};
+
+    let navMap = null;
+    let riderMarker = null;
+    let farmMarker = null;
+    let consumerMarker = null;
+
+    const riderIcon = L.divIcon({
+        className: 'rider-icon-pulse',
+        html: `<div style="background:#0f766e; color:white; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 0 15px rgba(15,118,110,0.8); border:3px solid white; font-size:18px;"><i class="fa fa-motorcycle"></i></div>`,
+        iconSize: [40, 40],
+        iconAnchor: [20, 20]
+    });
+
+    const farmIcon = L.divIcon({
+        className: 'farm-icon',
+        html: `<div style="background:#16a34a; color:white; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 0 10px rgba(22,163,74,0.6); border:2px solid white; font-size:16px;"><i class="fa fa-wheat-awn"></i></div>`,
+        iconSize: [36, 36],
+        iconAnchor: [18, 18]
+    });
+
+    const consumerIcon = L.divIcon({
+        className: 'consumer-icon',
+        html: `<div style="background:#2563eb; color:white; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 0 10px rgba(37,99,235,0.6); border:2px solid white; font-size:16px;"><i class="fa fa-house"></i></div>`,
+        iconSize: [36, 36],
+        iconAnchor: [18, 18]
+    });
+
+    function initNavMap() {
+        navMap = L.map('navMap').setView([RIDER_LAT, RIDER_LNG], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(navMap);
+
+        riderMarker = L.marker([RIDER_LAT, RIDER_LNG], { icon: riderIcon }).addTo(navMap).bindPopup("<b>Your Live Position</b>");
+        farmMarker = L.marker([FARM_LAT, FARM_LNG], { icon: farmIcon }).addTo(navMap).bindPopup("<b>Farm Pickup:</b> {{ order.farmer.full_name if order.farmer else 'Farmer' }}");
+        consumerMarker = L.marker([CONSUMER_LAT, CONSUMER_LNG], { icon: consumerIcon }).addTo(navMap).bindPopup("<b>Consumer Drop-off:</b> {{ order.consumer.full_name if order.consumer else 'Consumer' }}");
+
+        const routePoints = [
+            [RIDER_LAT, RIDER_LNG],
+            [FARM_LAT, FARM_LNG],
+            [CONSUMER_LAT, CONSUMER_LNG]
+        ];
+
+        L.polyline(routePoints, {
+            color: '#108a00',
+            weight: 5,
+            opacity: 0.85,
+            dashArray: '8, 8'
+        }).addTo(navMap);
+
+        navMap.fitBounds(L.latLngBounds(routePoints), { padding: [40, 40] });
+    }
+
+    // Step Advancement Function
+    async function advanceRiderStep(stepName) {
+        try {
+            const formData = new FormData();
+            formData.append('order_id', ORDER_ID);
+            formData.append('step', stepName);
+
+            const res = await fetch('/delivery/api/advance-step', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert(data.message || 'Error advancing step');
+            }
+        } catch (e) {
+            console.error("Step progression error:", e);
+        }
+    }
+
+    function openPhotoModal() {
+        const m = new bootstrap.Modal(document.getElementById('navPhotoModal'));
+        m.show();
+    }
+
+    document.getElementById('navPhotoFileInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                document.getElementById('navPhotoPreviewImg').src = evt.target.result;
+                document.getElementById('navPhotoPreview').style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    async function submitPackagePhotoNav() {
+        const fileInput = document.getElementById('navPhotoFileInput');
+        if (!fileInput.files || fileInput.files.length === 0) {
+            alert("Please select or capture a photo first!");
+            return;
+        }
+
+        const btn = document.getElementById('navBtnSubmitPhoto');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i> Sending to Head Office...';
+
+        const formData = new FormData();
+        formData.append('order_id', ORDER_ID);
+        formData.append('photo', fileInput.files[0]);
+
+        try {
+            const res = await fetch('/delivery/api/upload-package-photo', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert("Photo verified & sent to Head Office! Step 5 is now unlocked.");
+                window.location.reload();
+            } else {
+                alert(data.message || "Failed to upload photo");
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa fa-paper-plane me-1"></i> Submit Photo to Head Office';
+            }
+        } catch (err) {
+            console.error("Photo upload error:", err);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa fa-paper-plane me-1"></i> Submit Photo to Head Office';
+        }
+    }
+
+    async function completeDeliveryWithOtp() {
+        const otp = document.getElementById('deliveryOtpInput').value.trim();
+        if (!otp) {
+            alert("Please ask consumer for OTP and enter it here!");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('order_id', ORDER_ID);
+        formData.append('step', 'delivered');
+        formData.append('otp', otp);
+
+        const res = await fetch('/delivery/api/advance-step', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert("Delivery Completed Successfully! 🎉");
+            window.location.href = '/delivery/dashboard';
+        } else {
+            alert(data.message || "OTP verification failed");
+        }
+    }
+
+    // Auto broadcast rider GPS location
+    if (navigator.geolocation) {
+        navigator.geolocation.watchPosition((pos) => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            fetch('/delivery/api/update-gps', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ latitude: lat, longitude: lng, order_id: ORDER_ID })
+            }).catch(e => console.error("GPS ping failed:", e));
+
+            if (riderMarker) riderMarker.setLatLng([lat, lng]);
+        }, null, { enableHighAccuracy: true });
+    }
+
+    document.addEventListener("DOMContentLoaded", initNavMap);
+</script>
+
+</body>
+</html>

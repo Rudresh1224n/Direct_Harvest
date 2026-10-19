@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Admin Dashboard | DirectHarvest AI</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet">
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/admin.css') }}">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</head>
+
+<body>
+
+<div class="container-fluid">
+
+    <!-- HEADER -->
+
+    <div class="admin-header d-flex justify-content-between align-items-center">
+
+        <h2>
+            🌾 DirectHarvest AI Admin Panel
+        </h2>
+
+        <a href="/logout"
+           class="btn btn-danger">
+
+            Logout
+
+        </a>
+
+    </div>
+
+    <!-- STATISTICS -->
+
+    <div class="row mt-4 g-4">
+
+        <div class="col-lg-3">
+
+            <div class="admin-card text-center">
+
+                <h2 class="text-success">
+                    {{ total_farmers if total_farmers is not none else 0 }}
+                </h2>
+
+                <h5>Farmers</h5>
+
+            </div>
+
+        </div>
+
+        <div class="col-lg-3">
+
+            <div class="admin-card text-center">
+
+                <h2 class="text-primary">
+                    {{ total_consumers if total_consumers is not none else 0 }}
+                </h2>
+
+                <h5>Consumers</h5>
+
+            </div>
+
+        </div>
+
+        <div class="col-lg-3">
+
+            <div class="admin-card text-center">
+
+                <h2 class="text-warning">
+                    {{ total_delivery if total_delivery is not none else 0 }}
+                </h2>
+
+                <h5>Delivery Partners</h5>
+
+            </div>
+
+        </div>
+
+        <div class="col-lg-3">
+
+            <div class="admin-card text-center">
+
+                <h2 class="text-danger">
+                    ₹{{ revenue if revenue is not none else 0 }}
+                </h2>
+
+                <h5>Total Revenue</h5>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- PLATFORM CONFIGURATION & COMMISSION MANAGER (Phase 14) -->
+    <div class="row mt-4 g-4">
+        <div class="col-lg-6">
+            <div class="admin-card">
+                <h4><i class="fa fa-percentage me-2 text-success"></i> Platform Commission Settings</h4>
+                <hr>
+                <form method="POST" action="/admin/update-commission">
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Active Platform Commission Rate</label>
+                        <select name="commission_rate" class="form-select form-select-lg">
+                            <option value="0.02" {% if commission_rate == 0.02 %}selected{% endif %}>2% Commission Rate</option>
+                            <option value="0.05" {% if commission_rate == 0.05 %}selected{% endif %}>5% Commission Rate (Standard)</option>
+                            <option value="0.10" {% if commission_rate == 0.10 %}selected{% endif %}>10% Commission Rate (Premium)</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-success btn-lg w-100">
+                        Update Commission Settings
+                    </button>
+                </form>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="admin-card bg-success text-white">
+                <h4><i class="fa fa-piggy-bank me-2"></i> Commission Income Statement</h4>
+                <hr style="border-color: rgba(255,255,255,0.2) !important;">
+                <div class="d-flex justify-content-between mb-3">
+                    <span>Total Farm Sales Volume</span>
+                    <strong class="fs-5">₹{{ revenue if revenue else 0 }}</strong>
+                </div>
+                <div class="d-flex justify-content-between mb-3">
+                    <span>Platform Commission Earned</span>
+                    <strong class="fs-4 text-warning">₹{{ comm_earned if comm_earned else 0 }}</strong>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span>Farmer Net Share Distributed</span>
+                    <strong class="fs-5">₹{{ farmer_earnings if farmer_earnings else 0 }}</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CHARTS -->
+
+    <div class="row mt-4">
+
+        <div class="col-lg-6">
+
+            <div class="admin-card">
+
+                <h4>
+                    Monthly Orders
+                </h4>
+
+                <canvas id="orderChart"></canvas>
+
+            </div>
+
+        </div>
+
+        <div class="col-lg-6">
+
+            <div class="admin-card">
+
+                <h4>
+                    Revenue Analytics
+                </h4>
+
+                <canvas id="revenueChart"></canvas>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- QUICK ACTIONS -->
+
+    <div class="row mt-4">
+
+        <div class="col-lg-3">
+
+            <a href="/admin/users"
+               class="btn btn-success w-100 p-3">
+
+                👥 Manage Users
+
+            </a>
+
+        </div>
+
+        <div class="col-lg-3">
+
+            <a href="/admin/crops"
+               class="btn btn-warning w-100 p-3">
+
+                🌾 Manage Crops
+
+            </a>
+
+        </div>
+
+        <div class="col-lg-3">
+
+            <a href="/admin/orders"
+               class="btn btn-primary w-100 p-3">
+
+                📦 Orders
+
+            </a>
+
+        </div>
+
+        <div class="col-lg-3">
+            {% if ai_enabled %}
+            <a href="/admin/reports"
+               class="btn btn-danger w-100 p-3">
+
+                📊 AI Reports
+
+            </a>
+            {% else %}
+            <button class="btn btn-secondary w-100 p-3" disabled style="opacity: 0.6; cursor: not-allowed;">
+                📊 AI Reports (Disabled)
+            </button>
+            {% endif %}
+
+        </div>
+
+    </div>
+
+    <!-- AI ENGINE CONTROLS -->
+    <div class="row mt-3">
+        <div class="col-lg-4 mb-2">
+            <a href="/admin/ai-settings" class="btn btn-secondary w-100 p-3" style="background-color: #455a64; border-color: #455a64; color: white;">
+                ⚙️ AI Engine Settings
+            </a>
+        </div>
+        <div class="col-lg-4 mb-2">
+            {% if ai_enabled %}
+            <a href="/admin/ai-dashboard" class="btn btn-info w-100 p-3" style="background-color: #00838f; border-color: #00838f; color: white;">
+                🧠 AI Telemetry Dashboard
+            </a>
+            {% else %}
+            <button class="btn btn-secondary w-100 p-3" disabled style="opacity: 0.6; cursor: not-allowed;">
+                🧠 AI Dashboard (Disabled)
+            </button>
+            {% endif %}
+        </div>
+        <div class="col-lg-4 mb-2">
+            {% if ai_enabled %}
+            <a href="/admin/ai-testing-lab" class="btn btn-dark w-100 p-3" style="background-color: #37474f; border-color: #37474f; color: white;">
+                🔬 AI Prompt Testing Lab
+            </a>
+            {% else %}
+            <button class="btn btn-secondary w-100 p-3" disabled style="opacity: 0.6; cursor: not-allowed;">
+                🔬 AI Testing Lab (Disabled)
+            </button>
+            {% endif %}
+        </div>
+    <!-- EXCEL CREDENTIALS MANAGER QUICK ACCESS (Phase 16) -->
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="card border-0 p-3 shadow-sm rounded-3" style="background: linear-gradient(135deg, #1b4332 0%, #2d6a4f 100%); color: white;">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                    <div>
+                        <h5 class="fw-bold mb-1">
+                            📊 Live Excel Credentials Manager (<code>users_credentials.xlsx</code>)
+                        </h5>
+                        <p class="mb-0 opacity-75 small">
+                            Registrations automatically write to Excel. Edits in Excel automatically update passwords and credentials in the database.
+                        </p>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a href="/admin/excel/credentials/download" class="btn btn-warning fw-bold text-dark px-3 shadow-sm">
+                            📥 Download Excel
+                        </a>
+                        <a href="/admin/excel/credentials/sync" class="btn btn-light fw-bold px-3 shadow-sm">
+                            🔄 Force Sync
+                        </a>
+                        <a href="/admin/users" class="btn btn-outline-light fw-bold px-3 shadow-sm">
+                            👥 View Users
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RECENT ACTIVITY -->
+
+    <div class="admin-card mt-4">
+
+        <h4>
+            Recent Platform Activity
+        </h4>
+
+        <hr>
+
+        <table class="table table-striped">
+
+            <thead>
+
+                <tr>
+
+                    <th>ID</th>
+                    <th>Activity</th>
+                    <th>User</th>
+                    <th>Time</th>
+
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                {% if recent_activities %}
+                    {% for act in recent_activities %}
+                    <tr>
+                        <td>{{ act.id }}</td>
+                        <td>{{ act.activity }}</td>
+                        <td>{{ act.user }}</td>
+                        <td>{{ act.time }}</td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-3">
+                            No recent platform activity recorded.
+                        </td>
+                    </tr>
+                {% endif %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+    <!-- AI INSIGHTS -->
+
+    <div class="admin-card mt-4 mb-5">
+
+        <h4>
+            🤖 AI Platform Insights
+        </h4>
+
+        <hr>
+
+        {% if ai_insights %}
+            {% for insight in ai_insights %}
+            <div class="alert alert-{{ insight.type }}">
+                {{ insight.message }}
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="alert alert-secondary">
+                No platform insights compiled yet.
+            </div>
+        {% endif %}
+
+    </div>
+
+</div>
+
+<script>
+
+new Chart(
+    document.getElementById("orderChart"),
+    {
+        type: "bar",
+        data: {
+            labels: {{ chart_labels | tojson }},
+            datasets: [{
+                label: "Orders Count",
+                data: {{ chart_orders | tojson }},
+                backgroundColor: "#2e7d32",
+                borderRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1 }
+                }
+            }
+        }
+    }
+);
+
+new Chart(
+    document.getElementById("revenueChart"),
+    {
+        type: "line",
+        data: {
+            labels: {{ chart_labels | tojson }},
+            datasets: [{
+                label: "Revenue (₹)",
+                data: {{ chart_revenue | tojson }},
+                borderColor: "#0288d1",
+                backgroundColor: "rgba(2, 136, 209, 0.05)",
+                fill: true,
+                tension: 0.2
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    }
+);
+
+</script>
+
+<!-- Real-time Alerts Listener (Phase 17) -->
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+    const socket = io();
+    socket.on('new_order', function(data) {
+        console.log("Real-time order notification received:", data);
+        const toastHTML = `
+            <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1100;">
+                <div class="toast show bg-success text-white border-0" role="alert" aria-live="assertive" aria-atomic="true" style="border-radius: 12px;">
+                    <div class="toast-header bg-success text-white border-bottom border-white-50">
+                        <strong class="me-auto">🔔 Live Platform Alert</strong>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                    <div class="toast-body">
+                        New Order placed by <strong>${data.consumer_name}</strong> of <strong>₹${data.amount}</strong> just now! Refresh to see updated analytics.
+                    </div>
+                </div>
+            </div>
+        `;
+        const div = document.createElement('div');
+        div.innerHTML = toastHTML;
+        document.body.appendChild(div);
+        
+        setTimeout(() => {
+            div.remove();
+        }, 5000);
+    });
+</script>
+
+</body>
+</html>

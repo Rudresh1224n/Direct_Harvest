@@ -1,0 +1,163 @@
+<div class="sidebar">
+
+    <div class="sidebar-header">
+
+        <h3>
+            🌾 DirectHarvest AI
+        </h3>
+
+        <small>
+            Smart Agriculture Platform
+        </small>
+
+        <div class="mt-2 text-center">
+            <span class="sidebar-ai-status-pill badge rounded-pill bg-light {% if ai_status == 'connected' %}text-success{% else %}text-danger{% endif %} shadow-sm px-3 py-1 fw-bold" style="font-size: 0.78rem; cursor: default;">
+                <span class="sidebar-ai-status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: {% if ai_status == 'connected' %}#28a745; box-shadow: 0 0 6px rgba(40,167,69,0.8);{% else %}#dc3545; box-shadow: 0 0 6px rgba(220,53,69,0.8);{% endif %} margin-right: 4px;"></span>
+                <span class="sidebar-ai-status-text">{% if ai_status == 'connected' %}AI Connected{% else %}AI Disconnected{% endif %}</span>
+            </span>
+        </div>
+
+    </div>
+
+    <hr>
+
+    <!-- FARMER MENU -->
+
+    {% if session.get("role") == "farmer" %}
+
+    <a href="/farmer/dashboard">
+        📊 <span>Dashboard</span>
+    </a>
+
+    <a href="/farmer/add-crop">
+        ➕ <span>Add Crop</span>
+    </a>
+
+    <a href="/farmer/manage-crops">
+        🌽 <span>Manage Crops</span>
+    </a>
+
+    <a href="/farmer/orders">
+        📦 <span>Orders</span>
+    </a>
+
+    <a href="/farmer/inbox">
+        💬 <span>Inbox</span>
+    </a>
+
+    <a href="/farmer/wallet">
+        💰 <span>Wallet</span>
+    </a>
+
+    <a href="/farmer/revenue">
+        📈 <span>Revenue History</span>
+    </a>
+
+    <a href="/farmer/trust-score">
+        ⭐ <span>Trust Score</span>
+    </a>
+
+    {% endif %}
+
+    <!-- CONSUMER MENU -->
+
+    {% if session.get("role") == "consumer" %}
+
+    <a href="/marketplace">
+        🛒 <span>Marketplace</span>
+    </a>
+
+    <a href="/cart">
+        🧺 <span>My Cart</span>
+    </a>
+
+    <a href="/checkout">
+        💳 <span>Checkout</span>
+    </a>
+
+    <a href="/order-history">
+        📜 <span>Order History</span>
+    </a>
+
+    {% endif %}
+
+    <!-- DELIVERY MENU -->
+
+    {% if session.get("role") == "delivery" %}
+
+    <a href="/delivery/dashboard">
+        📊 <span>Dashboard</span>
+    </a>
+
+    <a href="/delivery/available-orders">
+        📦 <span>Available Orders</span>
+    </a>
+
+    <a href="/delivery/orders">
+        🚚 <span>Assigned Orders</span>
+    </a>
+
+    <a href="/delivery/inbox">
+        💬 <span>Inbox</span>
+    </a>
+
+    <a href="/delivery/history">
+        📜 <span>Delivery History</span>
+    </a>
+
+    {% endif %}
+
+    <!-- ADMIN MENU -->
+
+    {% if session.get("role") == "admin" %}
+
+    <a href="/admin/dashboard">
+        📊 <span>Dashboard</span>
+    </a>
+
+    <a href="/admin/users">
+        👥 <span>Users</span>
+    </a>
+
+    <a href="/admin/crops">
+        🌽 <span>Crops</span>
+    </a>
+
+    <a href="/admin/orders">
+        📦 <span>Orders</span>
+    </a>
+
+    <a href="/admin/delivery-tracking">
+        🚚 <span>Delivery Fleet</span>
+    </a>
+
+    <a href="/admin/reports">
+        📈 <span>Reports</span>
+    </a>
+
+    <a href="/admin/rankings">
+        🏆 <span>Rankings</span>
+    </a>
+
+    <a href="/admin/analytics">
+        🤖 <span>Analytics</span>
+    </a>
+
+    <a href="/admin/ai-settings">
+        ⚙️ <span>AI Configuration</span>
+    </a>
+
+    {% endif %}
+
+    <hr>
+
+    <a href="/">
+        🏠 <span>Home</span>
+    </a>
+
+    <a href="/logout">
+        🚪 <span>Logout</span>
+    </a>
+
+</div>
+<script src="{{ url_for('static', filename='js/platform_live_sync.js') }}"></script>

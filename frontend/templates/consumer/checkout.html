@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Checkout | DirectHarvest AI</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet">
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/address_autocomplete.css') }}">
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <style>
+
+        .checkout-card{
+            border:none;
+            border-radius:15px;
+            box-shadow:0 5px 20px rgba(0,0,0,.08);
+        }
+
+        .summary-card{
+            border:none;
+            border-radius:15px;
+            box-shadow:0 5px 20px rgba(0,0,0,.08);
+            position:sticky;
+            top:100px;
+        }
+
+        .payment-option{
+            padding:15px;
+            border:1px solid #ddd;
+            border-radius:10px;
+            margin-bottom:10px;
+            cursor:pointer;
+            transition: all 0.2s ease;
+        }
+
+        .payment-option:hover{
+            background:#f8f9fa;
+            border-color: #2e7d32;
+        }
+
+        /* Live credit card visual */
+        .credit-card-preview {
+            background: linear-gradient(135deg, #1b5e20, #2e7d32, #43a047);
+            color: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 25px rgba(27,94,32,0.25);
+            width: 100%;
+            max-width: 380px;
+            height: 200px;
+            margin: 0 auto 25px auto;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s ease;
+        }
+        .credit-card-preview:hover {
+            transform: translateY(-3px);
+        }
+        .credit-card-preview::before {
+            content: '';
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 50%;
+            top: -150px;
+            right: -100px;
+        }
+        .card-chip {
+            width: 45px;
+            height: 32px;
+            background: linear-gradient(135deg, #ffd700, #ffa500);
+            border-radius: 6px;
+            margin-bottom: 15px;
+            box-shadow: inset 0 1px 1px rgba(255,255,255,0.5);
+        }
+        .card-number-display {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.3rem;
+            letter-spacing: 2px;
+            margin-bottom: 15px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.4);
+        }
+        .card-holder-display {
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+            max-width: 190px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .card-expiry-display {
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+        }
+        .card-label {
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 2px;
+        }
+        
+        /* Payment loading state styles */
+        .payment-loading-step {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            opacity: 0.3;
+            transition: opacity 0.3s ease, color 0.3s ease;
+        }
+        .payment-loading-step.active {
+            opacity: 1;
+            font-weight: 600;
+        }
+        .payment-loading-step.completed {
+            opacity: 0.9;
+            color: #2e7d32;
+        }
+        .payment-loading-step .spinner-border {
+            width: 1.25rem;
+            height: 1.25rem;
+            margin-right: 12px;
+            border-width: 0.18em;
+        }
+        .payment-loading-step .step-icon {
+            font-size: 1.1rem;
+            margin-right: 12px;
+            width: 1.25rem;
+            text-align: center;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+{% include 'components/navbar.html' %}
+
+<div class="container py-5">
+
+    <h1 class="mb-4">
+        💳 Checkout
+    </h1>
+
+    <div class="row">
+
+        <!-- DELIVERY DETAILS -->
+
+        <div class="col-lg-8">
+
+            <div class="card checkout-card mb-4">
+
+                <div class="card-body">
+
+                    <h3>
+                        Delivery Information
+                    </h3>
+
+                    <hr>
+
+                    <form method="POST"
+                          action="/place-order"
+                          id="checkoutForm">
+
+                        <div class="row">
+
+                            <div class="col-md-6 mb-3">
+
+                                <label>
+                                    Full Name
+                                </label>
+
+                                <input type="text"
+                                       name="name"
+                                       class="form-control"
+                                       value="{{ user.full_name if user.full_name else '' }}"
+                                       required>
+
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+
+                                <label>
+                                    Phone Number
+                                </label>
+
+                                <input type="text"
+                                       name="phone"
+                                       class="form-control"
+                                       placeholder="e.g. 9876543210"
+                                       value="{{ user.phone if user.phone else '' }}"
+                                       required>
+
+                            </div>
+
+                        </div>
+
+                        <div class="address-details-card mt-3">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-bold text-dark mb-0">
+                                    <i class="fa fa-map-location-dot text-success me-2"></i> Delivery Address Details
+                                </h6>
+                                <span class="badge bg-light text-muted border">
+                                    <i class="fa fa-location-crosshairs text-primary me-1"></i> Live Place Autocomplete
+                                </span>
+                            </div>
+
+                            <!-- Street / Road / Area with live typing autocomplete -->
+                            <div class="mb-3">
+                                <label class="address-label">STREET / ROAD / AREA (START TYPING FOR SUGGESTIONS)</label>
+                                <div class="autocomplete-wrapper">
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-white border-end-0"><i class="fa fa-magnifying-glass text-muted"></i></span>
+                                        <input type="text" id="checkout_street" class="form-control address-input border-start-0" placeholder="Type letters to search street, road, colony or sector name..." autocomplete="off" required>
+                                    </div>
+                                    <div id="checkout_street_dropdown" class="autocomplete-dropdown"></div>
+                                </div>
+                                <div class="form-text text-muted small mt-1">
+                                    <i class="fa fa-shield-halved text-success me-1"></i> Suggests real streets and places matching Google Maps to prevent non-existent locations.
+                                </div>
+                            </div>
+
+                            <div class="row g-3">
+                                <!-- House / Flat / Block No. (Matching reference image: Sample 1) -->
+                                <div class="col-md-6 mb-2">
+                                    <label class="address-label">HOUSE / FLAT / BLOCK NO.</label>
+                                    <input type="text" id="checkout_house" class="form-control address-input" placeholder="e.g. Flat 304, 3rd Floor, Block B" required>
+                                </div>
+
+                                <!-- Apartment / Road / Area (Matching reference image: Sample 2) -->
+                                <div class="col-md-6 mb-2">
+                                    <label class="address-label">APARTMENT / ROAD / AREA (OPTIONAL)</label>
+                                    <input type="text" id="checkout_apartment" class="form-control address-input" placeholder="e.g. Silver Heights Society / Sector A">
+                                </div>
+                            </div>
+
+                            <div class="row g-3">
+                                <!-- Landmark -->
+                                <div class="col-md-6 mb-2">
+                                    <label class="address-label">LANDMARK (OPTIONAL)</label>
+                                    <input type="text" id="checkout_landmark" class="form-control address-input" placeholder="e.g. Near C21 Mall / Behind Petrol Pump">
+                                </div>
+
+                                <!-- City / District -->
+                                <div class="col-md-6 mb-2">
+                                    <label class="address-label">CITY / DISTRICT</label>
+                                    <input type="text" name="city" id="checkout_city" class="form-control address-input" placeholder="e.g. Indore" required>
+                                </div>
+                            </div>
+
+                            <div class="row g-3">
+                                <!-- State -->
+                                <div class="col-md-6 mb-2">
+                                    <label class="address-label">STATE</label>
+                                    <input type="text" name="state" id="checkout_state" class="form-control address-input" value="Madhya Pradesh" placeholder="e.g. Madhya Pradesh" required>
+                                </div>
+
+                                <!-- Pincode -->
+                                <div class="col-md-6 mb-2">
+                                    <label class="address-label">PINCODE</label>
+                                    <input type="text" name="pincode" id="checkout_pincode" class="form-control address-input" placeholder="e.g. 452010" maxlength="6" pattern="[0-9]{6}" required>
+                                </div>
+                            </div>
+
+                            <!-- Synchronized full address for backend delivery tracking and orders -->
+                            <textarea name="address" id="checkout_address" class="d-none" required></textarea>
+                        </div>
+
+                        <hr>
+
+                        <h4>
+                            Payment Method
+                        </h4>
+
+                        <div class="payment-option">
+
+                            <input type="radio"
+                                   name="payment_method"
+                                   value="COD"
+                                   checked>
+
+                            Cash On Delivery
+
+                        </div>
+
+                        <div class="payment-option">
+
+                            <input type="radio"
+                                   name="payment_method"
+                                   value="UPI">
+
+                            UPI Payment
+
+                        </div>
+
+                        <div class="payment-option">
+
+                            <input type="radio"
+                                   name="payment_method"
+                                   value="Card">
+
+                            Debit/Credit Card
+
+                        </div>
+
+                        <div class="payment-option">
+
+                            <input type="radio"
+                                   name="payment_method"
+                                   value="NetBanking">
+
+                            Net Banking
+
+                        </div>
+
+                        <input type="hidden"
+                               name="total_amount"
+                               value="{{ grand_total }}">
+
+                        <div class="d-grid mt-4">
+
+                            <button class="btn btn-success btn-lg">
+
+                                🚚 Place Order
+
+                            </button>
+
+                        </div>
+
+                    </form>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- ORDER SUMMARY -->
+
+        <div class="col-lg-4">
+
+            <div class="card summary-card">
+
+                <div class="card-body">
+
+                    <h3>
+                        Order Summary
+                    </h3>
+
+                    <hr>
+
+                    <div class="mb-3">
+
+                        <strong>
+                            Total Items
+                        </strong>
+
+                        <span class="float-end">
+
+                            {{ total_items }}
+
+                        </span>
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <strong>
+                            Subtotal
+                        </strong>
+
+                        <span class="float-end">
+
+                            ₹{{ subtotal }}
+
+                        </span>
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <strong>
+                            Delivery Charge
+                        </strong>
+
+                        <span class="float-end">
+
+                            ₹{{ delivery_charge }}
+
+                        </span>
+
+                    </div>
+
+                    <hr>
+
+                    <h4>
+
+                        Grand Total
+
+                        <span class="float-end text-success">
+
+                            ₹{{ grand_total }}
+
+                        </span>
+
+                    </h4>
+
+                    <hr>
+
+                    <div class="alert alert-success">
+
+                        🤖 AI Verified Produce
+
+                        <br>
+
+                        ⭐ Trusted Farmers
+
+                        <br>
+
+                        🚚 Fast Delivery
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% include 'components/footer.html' %}
+
+<!-- Payment Gateway Modal -->
+<div class="modal fade" id="paymentModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius: 20px; border: none; box-shadow: 0 15px 35px rgba(0,0,0,0.15);">
+      <div class="modal-header border-0 pb-0 justify-content-between align-items-center">
+        <h5 class="modal-title fw-bold text-success" id="paymentModalLabel">🔒 Secure Payment Gateway</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" id="paymentModalCloseBtn"></button>
+      </div>
+      <div class="modal-body pt-3">
+        <!-- Amount Summary Badge -->
+        <div class="d-flex justify-content-between align-items-center p-3 mb-4 bg-light rounded-4 border border-light-subtle">
+          <div>
+            <span class="text-muted small d-block">Amount to Pay</span>
+            <span class="fw-bold text-dark fs-5">DirectHarvest AI Purchase</span>
+          </div>
+          <span class="fs-4 fw-extrabold text-success">₹<span id="modalGrandTotal">{{ grand_total }}</span></span>
+        </div>
+
+        <!-- Section 1: UPI Fields -->
+        <div id="upiFormSection" class="payment-section" style="display: none;">
+          <div class="text-center mb-4">
+            <span class="fs-1">📱</span>
+            <h5 class="fw-bold mt-2">UPI Transaction</h5>
+            <p class="text-muted small">Enter your Virtual Payment Address (VPA) to authenticate the transfer</p>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold text-muted">UPI ID / VPA</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light text-muted">✉️</span>
+              <input type="text" id="upiIdInput" class="form-control form-control-lg rounded-end" placeholder="e.g. rudresh@oksbi" style="font-size: 1rem;">
+            </div>
+            <div id="upiFeedback" class="invalid-feedback text-danger mt-1" style="display: none; font-size: 0.85rem;">
+              Please enter a valid UPI ID (e.g. username@bank).
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Debit/Credit Card Fields -->
+        <div id="cardFormSection" class="payment-section" style="display: none;">
+          <!-- Live Card Visualization -->
+          <div class="credit-card-preview">
+            <div class="d-flex justify-content-between align-items-start">
+              <div class="card-chip"></div>
+              <span class="fw-bold fs-5 italic">DirectPay</span>
+            </div>
+            <div class="card-number-display" id="cardNumPreview">•••• •••• •••• ••••</div>
+            <div class="d-flex justify-content-between align-items-end mt-2">
+              <div>
+                <div class="card-label">Card Holder</div>
+                <div class="card-holder-display" id="cardHolderPreview">YOUR NAME HERE</div>
+              </div>
+              <div class="text-end">
+                <div class="card-label">Expires</div>
+                <div class="card-expiry-display" id="cardExpiryPreview">MM/YY</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card Form Fields -->
+          <div class="mb-3">
+            <label class="form-label small fw-semibold text-muted">Card Holder Name</label>
+            <input type="text" id="cardHolderInput" class="form-control rounded-3" placeholder="Rudresh Narkhede" style="text-transform: uppercase;">
+            <div id="cardHolderFeedback" class="invalid-feedback text-danger" style="display: none;">Cardholder name is required.</div>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label small fw-semibold text-muted">Card Number</label>
+            <input type="text" id="cardNumInput" class="form-control rounded-3" placeholder="4111 2222 3333 4444" maxlength="19">
+            <div id="cardNumFeedback" class="invalid-feedback text-danger" style="display: none;">Enter a valid 16-digit card number.</div>
+          </div>
+
+          <div class="row">
+            <div class="col-6 mb-3">
+              <label class="form-label small fw-semibold text-muted">Expiry Date</label>
+              <input type="text" id="cardExpiryInput" class="form-control rounded-3" placeholder="MM/YY" maxlength="5">
+              <div id="cardExpiryFeedback" class="invalid-feedback text-danger" style="display: none;">Enter a valid expiry (MM/YY).</div>
+            </div>
+            <div class="col-6 mb-3">
+              <label class="form-label small fw-semibold text-muted">CVV</label>
+              <input type="password" id="cardCvvInput" class="form-control rounded-3" placeholder="•••" maxlength="3">
+              <div id="cardCvvFeedback" class="invalid-feedback text-danger" style="display: none;">Enter a valid 3-digit CVV.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: Net Banking Fields -->
+        <div id="netBankingFormSection" class="payment-section" style="display: none;">
+          <div class="text-center mb-4">
+            <span class="fs-1">🏦</span>
+            <h5 class="fw-bold mt-2">Net Banking Portal</h5>
+            <p class="text-muted small">Select your bank from the options below to initiate the transfer</p>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold text-muted">Choose your Bank</label>
+            <select id="bankSelect" class="form-select form-select-lg rounded-3" style="font-size: 1rem;">
+              <option value="" selected disabled>-- Select Bank --</option>
+              <option value="SBI">State Bank of India (SBI)</option>
+              <option value="HDFC">HDFC Bank</option>
+              <option value="ICICI">ICICI Bank</option>
+              <option value="AXIS">Axis Bank</option>
+              <option value="KOTAK">Kotak Mahindra Bank</option>
+              <option value="PNB">Punjab National Bank (PNB)</option>
+            </select>
+            <div id="bankFeedback" class="invalid-feedback text-danger mt-1" style="display: none;">Please select your bank.</div>
+          </div>
+        </div>
+
+        <!-- Section 4: Loading Gate (Simulated Gateway) -->
+        <div id="paymentLoadingSection" class="payment-section text-center py-4" style="display: none;">
+          <div class="spinner-grow text-success mb-4" style="width: 3.5rem; height: 3.5rem;" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          
+          <h4 class="fw-bold text-dark mb-4">Processing Online Payment</h4>
+          
+          <div class="mx-auto" style="max-width: 320px; text-align: left;">
+            <div class="payment-loading-step" id="stepConnecting">
+              <div class="spinner-border text-success" role="status"></div>
+              <span class="step-icon" style="display: none;">🔒</span>
+              <span>1. Establishing handshake with secure gateway...</span>
+            </div>
+            
+            <div class="payment-loading-step" id="stepAuthorizing">
+              <div class="spinner-border text-success" role="status"></div>
+              <span class="step-icon" style="display: none;">⚙️</span>
+              <span>2. Verifying credentials and authorizing total...</span>
+            </div>
+            
+            <div class="payment-loading-step" id="stepSuccess">
+              <div class="spinner-border text-success" role="status"></div>
+              <span class="step-icon" style="display: none;">✅</span>
+              <span>3. Confirming transaction with bank...</span>
+            </div>
+          </div>
+          
+          <div id="successTxnInfo" class="mt-4 p-3 bg-success-subtle text-success border border-success-subtle rounded-3" style="display: none;">
+            <span class="fw-bold d-block">🎉 PAYMENT CONFIRMED</span>
+            <span class="small">Transaction ID: <span id="txnIdDisplay">DH-TXN-XXXXXXXX</span></span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Footer Buttons -->
+      <div class="modal-footer border-0 pt-0 justify-content-between" id="modalFooter">
+        <button type="button" class="btn btn-light rounded-3 px-4" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" id="modalPayBtn" class="btn btn-success rounded-3 px-4 fw-bold">Proceed & Pay</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/address_autocomplete.js') }}"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Initialize address autocomplete and detailed address synchronization
+    setupDetailedAddress({
+        houseId: 'checkout_house',
+        apartmentId: 'checkout_apartment',
+        streetId: 'checkout_street',
+        landmarkId: 'checkout_landmark',
+        cityId: 'checkout_city',
+        stateId: 'checkout_state',
+        pincodeId: 'checkout_pincode',
+        combinedId: 'checkout_address',
+        dropdownId: 'checkout_street_dropdown'
+    });
+
+    const checkoutForm = document.getElementById("checkoutForm");
+    const paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'));
+    const modalPayBtn = document.getElementById('modalPayBtn');
+    const modalCloseBtn = document.getElementById('paymentModalCloseBtn');
+    const modalFooter = document.getElementById('modalFooter');
+    
+    // Form Inputs
+    const nameInput = document.querySelector("input[name='name']");
+    const phoneInput = document.querySelector("input[name='phone']");
+    const addressInput = document.getElementById("checkout_address");
+    const houseInput = document.getElementById("checkout_house");
+    const streetInput = document.getElementById("checkout_street");
+    const cityInput = document.getElementById("checkout_city");
+    const stateInput = document.getElementById("checkout_state");
+    const pincodeInput = document.getElementById("checkout_pincode");
+
+    // Form validation check
+    function isFormValid() {
+        return nameInput.checkValidity() && 
+               phoneInput.checkValidity() && 
+               houseInput.checkValidity() &&
+               streetInput.checkValidity() &&
+               cityInput.checkValidity() && 
+               stateInput.checkValidity() && 
+               pincodeInput.checkValidity();
+    }
+
+    // Intercept form submit
+    checkoutForm.addEventListener("submit", function(e) {
+        // Get selected option
+        const selectedMethod = document.querySelector("input[name='payment_method']:checked").value;
+        
+        // If COD, submit normally
+        if (selectedMethod === 'COD') {
+            return; // let form submit naturally
+        }
+        
+        // If not COD, intercept!
+        e.preventDefault();
+        
+        if (!isFormValid()) {
+            // Trigger native HTML5 validation UI if the fields are empty/invalid
+            checkoutForm.reportValidity();
+            return;
+        }
+        
+        // Open payment modal
+        showPaymentSection(selectedMethod);
+        paymentModal.show();
+    });
+
+    // Handle Payment Sections Visibility
+    function showPaymentSection(method) {
+        // Reset sections
+        document.querySelectorAll('.payment-section').forEach(sec => sec.style.display = 'none');
+        document.getElementById('modalFooter').style.display = 'flex';
+        document.getElementById('paymentModalCloseBtn').style.display = 'block';
+        
+        // Reset loading states
+        document.querySelectorAll('.payment-loading-step').forEach(step => {
+            step.classList.remove('active', 'completed');
+            step.querySelector('.spinner-border').style.display = 'inline-block';
+            step.querySelector('.step-icon').style.display = 'none';
+        });
+        document.getElementById('successTxnInfo').style.display = 'none';
+        
+        if (method === 'UPI') {
+            document.getElementById('upiFormSection').style.display = 'block';
+            document.getElementById('upiIdInput').value = '';
+            document.getElementById('upiFeedback').style.display = 'none';
+            document.getElementById('upiIdInput').classList.remove('is-invalid');
+        } else if (method === 'Card') {
+            document.getElementById('cardFormSection').style.display = 'block';
+            
+            // Reset input values
+            document.getElementById('cardHolderInput').value = '';
+            document.getElementById('cardNumInput').value = '';
+            document.getElementById('cardExpiryInput').value = '';
+            document.getElementById('cardCvvInput').value = '';
+            
+            // Reset feedback
+            document.querySelectorAll('#cardFormSection .invalid-feedback').forEach(fb => fb.style.display = 'none');
+            document.querySelectorAll('#cardFormSection input').forEach(input => input.classList.remove('is-invalid'));
+            
+            // Reset Card previews
+            document.getElementById('cardHolderPreview').innerText = 'YOUR NAME HERE';
+            document.getElementById('cardNumPreview').innerText = '•••• •••• •••• ••••';
+            document.getElementById('cardExpiryPreview').innerText = 'MM/YY';
+        } else if (method === 'NetBanking') {
+            document.getElementById('netBankingFormSection').style.display = 'block';
+            document.getElementById('bankSelect').selectedIndex = 0;
+            document.getElementById('bankFeedback').style.display = 'none';
+            document.getElementById('bankSelect').classList.remove('is-invalid');
+        }
+    }
+
+    // LIVE Card Previews updates
+    const cardHolderInput = document.getElementById('cardHolderInput');
+    const cardNumInput = document.getElementById('cardNumInput');
+    const cardExpiryInput = document.getElementById('cardExpiryInput');
+    const cardCvvInput = document.getElementById('cardCvvInput');
+
+    cardHolderInput.addEventListener('input', function() {
+        const val = this.value.toUpperCase();
+        document.getElementById('cardHolderPreview').innerText = val || 'YOUR NAME HERE';
+        if (val) {
+            this.classList.remove('is-invalid');
+            document.getElementById('cardHolderFeedback').style.display = 'none';
+        }
+    });
+
+    cardNumInput.addEventListener('input', function() {
+        // Remove non-digits
+        let val = this.value.replace(/\D/g, '');
+        // Group by 4s
+        let formatted = '';
+        for (let i = 0; i < val.length && i < 16; i++) {
+            if (i > 0 && i % 4 === 0) formatted += ' ';
+            formatted += val[i];
+        }
+        this.value = formatted;
+        
+        // Pad for preview
+        let preview = formatted;
+        const totalPadsNeeded = 19 - preview.length;
+        if (totalPadsNeeded > 0) {
+            for (let i = preview.length; i < 19; i++) {
+                if (i === 4 || i === 9 || i === 14) preview += ' ';
+                else preview += '•';
+            }
+        }
+        document.getElementById('cardNumPreview').innerText = preview;
+        if (val.length === 16) {
+            this.classList.remove('is-invalid');
+            document.getElementById('cardNumFeedback').style.display = 'none';
+        }
+    });
+
+    cardExpiryInput.addEventListener('input', function() {
+        let val = this.value.replace(/\D/g, '');
+        if (val.length > 2) {
+            val = val.substring(0,2) + '/' + val.substring(2,4);
+        }
+        this.value = val;
+        document.getElementById('cardExpiryPreview').innerText = val || 'MM/YY';
+        
+        if (val.length === 5) {
+            this.classList.remove('is-invalid');
+            document.getElementById('cardExpiryFeedback').style.display = 'none';
+        }
+    });
+
+    cardCvvInput.addEventListener('input', function() {
+        let val = this.value.replace(/\D/g, '');
+        this.value = val;
+        if (val.length === 3) {
+            this.classList.remove('is-invalid');
+            document.getElementById('cardCvvFeedback').style.display = 'none';
+        }
+    });
+
+    // Validate inputs & Process Payment
+    modalPayBtn.addEventListener('click', function() {
+        const method = document.querySelector("input[name='payment_method']:checked").value;
+        let isValid = true;
+
+        if (method === 'UPI') {
+            const upiId = document.getElementById('upiIdInput').value.trim();
+            const upiRegex = /^[\w.\-_]{2,256}@[a-zA-Z]{2,64}$/;
+            if (!upiRegex.test(upiId)) {
+                isValid = false;
+                document.getElementById('upiIdInput').classList.add('is-invalid');
+                document.getElementById('upiFeedback').style.display = 'block';
+            } else {
+                document.getElementById('upiIdInput').classList.remove('is-invalid');
+                document.getElementById('upiFeedback').style.display = 'none';
+            }
+        } else if (method === 'Card') {
+            const holder = cardHolderInput.value.trim();
+            const num = cardNumInput.value.replace(/\s/g, '');
+            const expiry = cardExpiryInput.value.trim();
+            const cvv = cardCvvInput.value.trim();
+
+            if (!holder) {
+                isValid = false;
+                cardHolderInput.classList.add('is-invalid');
+                document.getElementById('cardHolderFeedback').style.display = 'block';
+            } else {
+                cardHolderInput.classList.remove('is-invalid');
+                document.getElementById('cardHolderFeedback').style.display = 'none';
+            }
+
+            if (num.length !== 16) {
+                isValid = false;
+                cardNumInput.classList.add('is-invalid');
+                document.getElementById('cardNumFeedback').style.display = 'block';
+            } else {
+                cardNumInput.classList.remove('is-invalid');
+                document.getElementById('cardNumFeedback').style.display = 'none';
+            }
+
+            const expRegex = /^(0[1-9]|1[0-2])\/?([0-9]{2})$/;
+            if (!expRegex.test(expiry)) {
+                isValid = false;
+                cardExpiryInput.classList.add('is-invalid');
+                document.getElementById('cardExpiryFeedback').style.display = 'block';
+            } else {
+                cardExpiryInput.classList.remove('is-invalid');
+                document.getElementById('cardExpiryFeedback').style.display = 'none';
+            }
+
+            if (cvv.length !== 3) {
+                isValid = false;
+                cardCvvInput.classList.add('is-invalid');
+                document.getElementById('cardCvvFeedback').style.display = 'block';
+            } else {
+                cardCvvInput.classList.remove('is-invalid');
+                document.getElementById('cardCvvFeedback').style.display = 'none';
+            }
+        } else if (method === 'NetBanking') {
+            const bank = document.getElementById('bankSelect').value;
+            if (!bank) {
+                isValid = false;
+                document.getElementById('bankSelect').classList.add('is-invalid');
+                document.getElementById('bankFeedback').style.display = 'block';
+            } else {
+                document.getElementById('bankSelect').classList.remove('is-invalid');
+                document.getElementById('bankFeedback').style.display = 'none';
+            }
+        }
+
+        if (!isValid) return;
+
+        // Hide inputs form sections and show simulated loading gate
+        document.getElementById('upiFormSection').style.display = 'none';
+        document.getElementById('cardFormSection').style.display = 'none';
+        document.getElementById('netBankingFormSection').style.display = 'none';
+        modalFooter.style.display = 'none';
+        modalCloseBtn.style.display = 'none';
+        
+        document.getElementById('paymentLoadingSection').style.display = 'block';
+        
+        // Begin Multi-step Gateway simulation
+        simulateGatewaySteps();
+    });
+
+    function simulateGatewaySteps() {
+        const step1 = document.getElementById('stepConnecting');
+        const step2 = document.getElementById('stepAuthorizing');
+        const step3 = document.getElementById('stepSuccess');
+        const txnDisplay = document.getElementById('txnIdDisplay');
+        const successInfo = document.getElementById('successTxnInfo');
+
+        // Step 1: Connecting
+        step1.classList.add('active');
+        
+        setTimeout(() => {
+            // Complete Step 1
+            step1.classList.remove('active');
+            step1.classList.add('completed');
+            step1.querySelector('.spinner-border').style.display = 'none';
+            step1.querySelector('.step-icon').style.display = 'inline-block';
+            
+            // Start Step 2
+            step2.classList.add('active');
+            
+            setTimeout(() => {
+                // Complete Step 2
+                step2.classList.remove('active');
+                step2.classList.add('completed');
+                step2.querySelector('.spinner-border').style.display = 'none';
+                step2.querySelector('.step-icon').style.display = 'inline-block';
+                
+                // Start Step 3
+                step3.classList.add('active');
+                
+                setTimeout(() => {
+                    // Complete Step 3
+                    step3.classList.remove('active');
+                    step3.classList.add('completed');
+                    step3.querySelector('.spinner-border').style.display = 'none';
+                    step3.querySelector('.step-icon').style.display = 'inline-block';
+                    
+                    // Generate random transaction ID
+                    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+                    let txnId = 'DH-TXN-';
+                    for (let i = 0; i < 8; i++) {
+                        txnId += characters.charAt(Math.floor(Math.random() * characters.length));
+                    }
+                    txnDisplay.innerText = txnId;
+                    successInfo.style.display = 'block';
+                    
+                    // After success animation, submit form
+                    setTimeout(() => {
+                        checkoutForm.submit();
+                    }, 1200);
+                }, 1000);
+            }, 1200);
+        }, 1200);
+    }
+});
+</script>
+
+</body>
+</html>

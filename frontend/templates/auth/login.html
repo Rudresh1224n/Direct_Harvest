@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Login | DirectHarvest AI</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet">
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/auth.css') }}">
+
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+</head>
+
+<body>
+
+<div class="auth-container">
+
+    <div class="auth-card">
+
+        <div class="text-center mb-4">
+
+            <h2 class="fw-bold text-success">
+                🌾 DirectHarvest AI
+            </h2>
+
+            <p class="text-muted">
+                Login To Continue
+            </p>
+
+        </div>
+
+        {% if alert %}
+        <div class="alert alert-warning alert-dismissible fade show border-0 shadow-sm rounded-3 py-3 mb-4" role="alert" style="background-color: #fff9e6; color: #855300; border-left: 5px solid #ffb300 !important;">
+            <div class="d-flex align-items-center">
+                <span class="fs-4 me-2">🔔</span>
+                <div>
+                    <strong class="d-block">Access Restricted</strong>
+                    <span class="small">{{ alert }}</span>
+                </div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% elif message %}
+        <div class="alert alert-danger">
+            {{ message }}
+        </div>
+        {% endif %}
+
+        <form method="POST"
+              action="/login"
+              autocomplete="off">
+
+            <div class="mb-3">
+
+                <label class="form-label">
+                    Email Address
+                </label>
+
+                <div class="input-group">
+
+                    <span class="input-group-text">
+                        <i class="fa-solid fa-envelope"></i>
+                    </span>
+
+                    <input type="email"
+                           id="email"
+                           name="email"
+                           class="form-control"
+                           placeholder="Enter Email"
+                           autocomplete="off"
+                           required>
+
+                </div>
+
+            </div>
+
+            <div class="mb-3">
+
+                <label class="form-label">
+                    Password
+                </label>
+
+                <div class="input-group">
+
+                    <span class="input-group-text">
+                        <i class="fa-solid fa-lock"></i>
+                    </span>
+
+                    <input type="password"
+                           id="password"
+                           name="password"
+                           class="form-control"
+                           placeholder="Enter Password"
+                           autocomplete="new-password"
+                           required>
+
+                    <button class="btn btn-outline-secondary"
+                            type="button"
+                            onclick="togglePassword()">
+
+                        <i class="fa-solid fa-eye"></i>
+
+                    </button>
+
+                </div>
+
+            </div>
+
+            <div class="d-flex justify-content-between mb-3">
+
+                <div>
+
+                    <input type="checkbox"
+                           id="remember">
+
+                    <label for="remember">
+                        Remember Me
+                    </label>
+
+                </div>
+
+                <a href="/forgot-password"
+                   class="text-success">
+
+                    Forgot Password?
+
+                </a>
+
+            </div>
+
+            <button type="submit"
+                    class="login-btn">
+
+                Login
+
+            </button>
+
+        </form>
+
+        <hr>
+
+        <div class="text-center">
+
+            Don't have an account?
+
+            <a href="/register"
+               class="text-success fw-bold">
+
+                Register
+
+            </a>
+
+        </div>
+
+        <div class="text-center mt-4">
+
+            <a href="/"
+               class="btn btn-outline-success">
+
+                ← Back To Home
+
+            </a>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+
+function togglePassword()
+{
+    let password = document.getElementById("password");
+    if(password.type === "password")
+    {
+        password.type = "text";
+    }
+    else
+    {
+        password.type = "password";
+    }
+}
+
+// Automatically purge invalid browser autofill (e.g. API endpoints, URLs, or non-email text)
+function purgeInvalidAutofill() {
+    const emailField = document.getElementById("email") || document.querySelector('input[name="email"]');
+    const passwordField = document.getElementById("password") || document.querySelector('input[name="password"]');
+
+    if (emailField) {
+        const val = (emailField.value || "").trim().toLowerCase();
+        // If browser autofills an API endpoint, URL, or non-email string
+        if (
+            val.startsWith("http://") ||
+            val.startsWith("https://") ||
+            val.includes("navigatelabs") ||
+            val.includes("apidev") ||
+            val.includes("/") ||
+            (val.length > 0 && !val.includes("@"))
+        ) {
+            emailField.value = "";
+            if (passwordField) {
+                passwordField.value = "";
+            }
+        }
+    }
+}
+
+purgeInvalidAutofill();
+document.addEventListener("DOMContentLoaded", purgeInvalidAutofill);
+window.addEventListener("load", purgeInvalidAutofill);
+window.addEventListener("pageshow", purgeInvalidAutofill);
+setTimeout(purgeInvalidAutofill, 50);
+setTimeout(purgeInvalidAutofill, 150);
+setTimeout(purgeInvalidAutofill, 300);
+setTimeout(purgeInvalidAutofill, 600);
+setTimeout(purgeInvalidAutofill, 1000);
+
+</script>
+
+</body>
+</html>

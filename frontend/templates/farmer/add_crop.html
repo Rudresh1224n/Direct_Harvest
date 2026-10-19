@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add New Crop | DirectHarvest AI</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    
+    <style>
+        .form-card {
+            border: none;
+            border-radius: 20px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.06);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+        .form-label {
+            font-weight: 600;
+            color: #2e7d32;
+            font-size: 0.9rem;
+        }
+        .form-control, .form-select {
+            border-radius: 10px;
+            border: 1px solid #e0e0e0;
+            padding: 12px;
+            transition: all 0.2s ease;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: #2e7d32;
+            box-shadow: 0 0 0 0.25rem rgba(46, 125, 50, 0.15);
+        }
+        .preview-box {
+            border: 2px dashed #ccc;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            background: #fcfcfc;
+            cursor: pointer;
+            transition: border-color 0.2s ease;
+        }
+        .preview-box:hover {
+            border-color: #2e7d32;
+        }
+    </style>
+</head>
+
+<body>
+
+{% include 'components/sidebar.html' %}
+
+<div class="main-content">
+    <div class="container py-4">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                
+                <div class="d-flex align-items-center mb-4">
+                    <a href="/farmer/manage-crops" class="btn btn-outline-success btn-sm me-3 rounded-3">← Back</a>
+                    <h2 class="mb-0 fw-bold">🌾 Add New Crop</h2>
+                </div>
+
+                <div class="card form-card">
+                    <div class="card-body p-4 p-md-5">
+                        
+                        {% if error %}
+                        <div class="alert alert-danger rounded-3 mb-4" role="alert">
+                            ⚠️ {{ error }}
+                        </div>
+                        {% endif %}
+
+                        <form method="POST" action="/farmer/add-crop" enctype="multipart/form-data">
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-4">
+                                    <label class="form-label">Crop Name</label>
+                                    <input type="text" 
+                                           class="form-control" 
+                                           name="crop_name" 
+                                           placeholder="e.g. Organic Tomatoes" 
+                                           required>
+                                </div>
+                                
+                                <div class="col-md-6 mb-4">
+                                    <label class="form-label">Category</label>
+                                    <select class="form-select" name="category" required>
+                                        <option value="" disabled selected>Select Category</option>
+                                        <option value="vegetable">Vegetables 🥦</option>
+                                        <option value="fruit">Fruits 🍎</option>
+                                        <option value="grain">Grains & Cereals 🌾</option>
+                                        <option value="herb">Herbs & Spices 🌿</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-4">
+                                    <label class="form-label">Quantity Available (KG)</label>
+                                    <input type="number" 
+                                           class="form-control" 
+                                           name="quantity" 
+                                           placeholder="e.g. 250" 
+                                           min="1" 
+                                           required>
+                                </div>
+                                
+                                <div class="col-md-6 mb-4">
+                                    <label class="form-label">Price per KG (₹)</label>
+                                    <input type="number" 
+                                           step="0.01" 
+                                           class="form-control" 
+                                           name="farmer_price" 
+                                           id="farmer_price_input"
+                                           placeholder="e.g. 45" 
+                                           min="1" 
+                                           required>
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label">Description</label>
+                                <textarea class="form-control" 
+                                          name="description" 
+                                          rows="4" 
+                                          placeholder="Describe the freshness, harvest date, dynamic taste or storage conditions..." 
+                                          required></textarea>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label">Upload Crop Image</label>
+                                <div class="preview-box" onclick="document.getElementById('crop_image').click()">
+                                    <span class="fs-1 text-muted d-block mb-2">📸</span>
+                                    <span class="fw-semibold text-muted d-block">Click to upload photo</span>
+                                    <span class="text-muted small">PNG, JPG, or JPEG formats supported</span>
+                                    <input type="file" 
+                                           id="crop_image" 
+                                           name="crop_image" 
+                                           class="d-none" 
+                                           accept="image/*" 
+                                           onchange="previewImage(this)"
+                                           required>
+                                </div>
+                                <div id="imagePreviewContainer" class="mt-3 text-center" style="display: none;">
+                                    <img id="imagePreview" src="#" alt="Image Preview" style="max-height: 200px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                                </div>
+                            </div>
+
+                            <div class="d-grid mt-5">
+                                <button type="submit" class="btn btn-success btn-lg rounded-3 fw-bold py-3">🚀 Upload & Run AI Analysis</button>
+                            </div>
+
+                        </form>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function previewImage(input) {
+        const previewContainer = document.getElementById('imagePreviewContainer');
+        const previewImg = document.getElementById('imagePreview');
+        
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                previewImg.src = e.target.result;
+                previewContainer.style.display = 'block';
+            }
+            
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Configuration Wizard | DirectHarvest AI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle at 10% 20%, rgb(4, 32, 17) 0%, rgb(18, 70, 39) 90.2%);
+            color: #f8f9fa;
+        }
+
+        .wizard-container {
+            width: 100%;
+            max-width: 520px;
+            padding: 20px;
+        }
+
+        .wizard-card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .wizard-card h2 {
+            color: #81c784;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 1.8rem;
+        }
+
+        .wizard-card .subtitle {
+            text-align: center;
+            color: #a5d6a7;
+            font-size: 0.95rem;
+            margin-bottom: 30px;
+            line-height: 1.4;
+        }
+
+        .form-label {
+            color: #c8e6c9;
+            font-weight: 500;
+            font-size: 0.88rem;
+        }
+
+        .form-control {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+            border-radius: 12px;
+            padding: 12px 16px;
+            transition: all 0.3s;
+        }
+
+        .form-control:focus {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: #81c784;
+            box-shadow: 0 0 0 0.25rem rgba(129, 199, 132, 0.25);
+            color: #ffffff;
+        }
+
+        .form-control::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .btn-save {
+            background: linear-gradient(135deg, #2e7d32, #43a047);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 12px;
+            font-weight: 600;
+            width: 100%;
+            transition: all 0.3s;
+            margin-top: 15px;
+            box-shadow: 0 4px 15px rgba(46, 125, 50, 0.4);
+        }
+
+        .btn-save:hover {
+            background: linear-gradient(135deg, #1b5e20, #2e7d32);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(46, 125, 50, 0.6);
+        }
+
+        .btn-skip {
+            background: transparent;
+            color: #a5d6a7;
+            border: 1px solid rgba(165, 214, 167, 0.4);
+            padding: 12px;
+            border-radius: 12px;
+            font-weight: 500;
+            width: 100%;
+            transition: all 0.3s;
+            margin-top: 12px;
+        }
+
+        .btn-skip:hover {
+            background: rgba(165, 214, 167, 0.1);
+            color: #ffffff;
+            border-color: #a5d6a7;
+        }
+
+        .alert-custom {
+            background: rgba(211, 47, 47, 0.2);
+            border: 1px solid rgba(211, 47, 47, 0.3);
+            color: #ffcdd2;
+            border-radius: 12px;
+            font-size: 0.88rem;
+            padding: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="wizard-container">
+    <div class="wizard-card">
+        <h2>🌾 DirectHarvest AI</h2>
+        <div class="subtitle">Platform Setup Wizard: Configure your Navigate Labs AI credentials to enable computer vision grading & market forecasting.</div>
+
+        {% if error %}
+        <div class="alert-custom">
+            ⚠️ {{ error }}
+        </div>
+        {% endif %}
+
+        <form method="POST" action="/ai-config-wizard" autocomplete="off">
+            <div class="mb-3">
+                <label class="form-label">Navigate Labs Base URL</label>
+                <input type="url" name="base_url" class="form-control" autocomplete="off" placeholder="https://api.navigatelabs.xyz/v1" value="{% if settings %}{{ settings.base_url }}{% endif %}" required>
+                <div class="form-text text-muted" style="font-size: 0.72rem; color: #a5d6a7 !important;">Example: https://api.navigatelabs.xyz/v1</div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">Navigate Labs API Key</label>
+                <input type="password" name="api_key" class="form-control" autocomplete="new-password" placeholder="Enter API secret key" value="{% if settings.masked_key %}{{ settings.masked_key }}{% endif %}" required>
+            </div>
+
+            <button type="submit" class="btn btn-save">
+                🚀 Continue with AI
+            </button>
+        </form>
+
+        <form method="POST" action="/ai-config-wizard" class="mt-2">
+            <input type="hidden" name="skip" value="true">
+            <button type="submit" class="btn btn-skip">
+                ⏩ Continue without AI
+            </button>
+        </form>
+    </div>
+</div>
+
+</body>
+</html>

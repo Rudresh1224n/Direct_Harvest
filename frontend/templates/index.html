@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>DirectHarvest AI</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet">
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <style>
+
+        .hero-section{
+            min-height:90vh;
+            display:flex;
+            align-items:center;
+            background:
+            linear-gradient(
+                rgba(0,0,0,0.55),
+                rgba(0,0,0,0.55)
+            ),
+            url("https://images.unsplash.com/photo-1500937386664-56d1dfef3854");
+            background-size:cover;
+            background-position:center;
+            color:white;
+        }
+
+        .hero-title{
+            font-size:4rem;
+            font-weight:700;
+        }
+
+        .hero-subtitle{
+            font-size:1.2rem;
+            margin-top:20px;
+        }
+
+        .feature-card{
+            padding:30px;
+            border-radius:20px;
+            transition:.4s;
+            background:white;
+            box-shadow:0 5px 20px rgba(0,0,0,.08);
+            height:100%;
+        }
+
+        .feature-card:hover{
+            transform:translateY(-10px);
+        }
+
+        .feature-icon{
+            font-size:50px;
+            color:#2e7d32;
+            margin-bottom:20px;
+        }
+
+        .crop-card img{
+            height:250px;
+            object-fit:cover;
+        }
+
+        .stats{
+            background:#2e7d32;
+            color:white;
+            padding:60px 0;
+        }
+
+        .cta-section{
+            background:#f4f7f4;
+            padding:80px 0;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+{% include 'components/navbar.html' %}
+
+
+<!-- HERO SECTION -->
+
+<section class="hero-section">
+
+    <div class="container">
+
+        <div class="row align-items-center">
+
+            <div class="col-lg-7">
+
+                <h1 class="hero-title">
+                    🌾 DirectHarvest AI
+                </h1>
+
+                <h4>
+                    From Farm To Home — Powered By AI
+                </h4>
+
+                <p class="hero-subtitle">
+                    Connect farmers directly with consumers,
+                    eliminate middlemen and use AI-powered
+                    crop analysis, smart pricing and trust scoring.
+                </p>
+
+                <div class="mt-4">
+
+                    {% if session.get("user_id") %}
+                        {% if session.get("role") == "farmer" %}
+                            <a href="/marketplace" class="btn btn-warning btn-lg me-3">Shop Fresh Produce</a>
+                            <a href="/farmer/dashboard" class="btn btn-success btn-lg me-3">Farmer Dashboard</a>
+                            <a href="/profile" class="btn btn-outline-light btn-lg">👤 My Profile</a>
+                        {% elif session.get("role") == "consumer" %}
+                            <a href="/marketplace" class="btn btn-warning btn-lg me-3">Shop Fresh Produce</a>
+                            <a href="/order-history" class="btn btn-success btn-lg me-3">Consumer Dashboard</a>
+                            <a href="/profile" class="btn btn-outline-light btn-lg">👤 My Profile</a>
+                        {% elif session.get("role") == "delivery" %}
+                            <a href="/delivery/dashboard" class="btn btn-success btn-lg me-3">Delivery Dashboard</a>
+                            <a href="/profile" class="btn btn-outline-light btn-lg">👤 My Profile</a>
+                        {% elif session.get("role") == "admin" %}
+                            <a href="/admin/dashboard" class="btn btn-success btn-lg me-3">Admin Panel</a>
+                            <a href="/profile" class="btn btn-outline-light btn-lg">👤 My Profile</a>
+                        {% endif %}
+                    {% else %}
+                        <a href="/marketplace"
+                           class="btn btn-warning btn-lg me-3">
+                            Shop Fresh Produce
+                        </a>
+
+                        <a href="/register"
+                           class="btn btn-success btn-lg">
+                            Become A Farmer
+                        </a>
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+<!-- FEATURES -->
+
+<section class="py-5">
+
+    <div class="container">
+
+        <h2 class="section-title">
+            Why DirectHarvest AI?
+        </h2>
+
+        <div class="row g-4">
+
+            <div class="col-md-4">
+
+                <div class="feature-card text-center">
+
+                    <i class="fa-solid fa-robot feature-icon"></i>
+
+                    <h4>AI Quality Analysis</h4>
+
+                    <p>
+                        Automatically evaluates crop quality,
+                        freshness and market suitability.
+                    </p>
+
+                </div>
+
+            </div>
+
+            <div class="col-md-4">
+
+                <div class="feature-card text-center">
+
+                    <i class="fa-solid fa-chart-line feature-icon"></i>
+
+                    <h4>Demand Forecasting</h4>
+
+                    <p>
+                        Predict future demand and help
+                        farmers make informed decisions.
+                    </p>
+
+                </div>
+
+            </div>
+
+            <div class="col-md-4">
+
+                <div class="feature-card text-center">
+
+                    <i class="fa-solid fa-indian-rupee-sign feature-icon"></i>
+
+                    <h4>Smart Pricing</h4>
+
+                    <p>
+                        AI recommends fair and profitable
+                        selling prices.
+                    </p>
+
+                </div>
+
+            </div>
+
+            <div class="col-md-4">
+
+                <div class="feature-card text-center">
+
+                    <i class="fa-solid fa-star feature-icon"></i>
+
+                    <h4>Trust Score</h4>
+
+                    <p>
+                        Dynamic farmer trust ranking
+                        based on quality and reviews.
+                    </p>
+
+                </div>
+
+            </div>
+
+            <div class="col-md-4">
+
+                <div class="feature-card text-center">
+
+                    <i class="fa-solid fa-truck feature-icon"></i>
+
+                    <h4>Delivery Tracking</h4>
+
+                    <p>
+                        End-to-end crop delivery
+                        management and tracking.
+                    </p>
+
+                </div>
+
+            </div>
+
+            <div class="col-md-4">
+
+                <div class="feature-card text-center">
+
+                    <i class="fa-brands fa-whatsapp feature-icon"></i>
+
+                    <h4>WhatsApp Updates</h4>
+
+                    <p>
+                        Instant notifications for
+                        farmers, consumers and delivery partners.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+<!-- MARKETPLACE PREVIEW -->
+
+<section class="py-5" style="background-color: #f7faf8;">
+
+    <div class="container">
+
+        <h2 class="section-title">
+            Fresh Crops Marketplace
+        </h2>
+
+        <p class="text-center text-muted mb-5" style="max-width: 600px; margin: -20px auto 40px auto;">
+            Browse freshly uploaded harvest direct from verified local farms, certified by our Generative AI quality assessment.
+        </p>
+
+        <div class="row g-4">
+
+            {% if session.get('user_id') %}
+                {% if crops %}
+                    {% for crop in crops %}
+                    <div class="col-md-4">
+                        <div class="card card-shadow h-100 overflow-hidden border-0">
+                            {% if crop.crop_image %}
+                                <img src="{{ url_for('static', filename='uploads/crop_images/' + crop.crop_image) if not crop.crop_image.startswith('http') else crop.crop_image }}" class="card-img-top" style="height: 240px; object-fit: cover;">
+                            {% else %}
+                                {% if crop.category|lower == 'grain' %}
+                                    <img src="https://images.unsplash.com/photo-1582515073490-dc6c39f8b5d8" class="card-img-top" style="height: 240px; object-fit: cover;">
+                                {% elif crop.category|lower == 'tuber' %}
+                                    <img src="https://images.unsplash.com/photo-1518977676601-b53f82aba655" class="card-img-top" style="height: 240px; object-fit: cover;">
+                                {% else %}
+                                    <img src="https://images.unsplash.com/photo-1546470427-e5ac89cd0b3b" class="card-img-top" style="height: 240px; object-fit: cover;">
+                                {% endif %}
+                            {% endif %}
+                            <div class="card-body p-4">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="badge" style="background-color: rgba(46, 125, 50, 0.1); color: var(--primary); font-weight: 600; font-size: 0.8rem;">
+                                        {{ crop.category }}
+                                    </span>
+                                    <span class="badge" style="background-color: rgba(255, 179, 0, 0.1); color: var(--accent); font-weight: 600; font-size: 0.8rem;">
+                                        <i class="fa-solid fa-star me-1"></i> Trust: {{ (crop.trust_score if crop.trust_score is not none else 0) | round(0) }}
+                                    </span>
+                                </div>
+                                <h5 class="fw-bold mb-1">{{ crop.crop_name }}</h5>
+                                <p class="text-muted small mb-3">{{ crop.description[:100] }}{% if crop.description|length > 100 %}...{% endif %}</p>
+                                <div class="d-flex justify-content-between align-items-center pt-2" style="border-top: 1px solid var(--gray-light);">
+                                    <div>
+                                        <span class="text-success fw-bold fs-5">₹{{ crop.farmer_price }}</span> <span class="text-muted small">/ KG</span>
+                                    </div>
+                                    <span class="badge bg-{{ crop.profit_class }} badge-custom {% if crop.profit_class == 'warning' or crop.profit_class == 'success' %}text-dark{% endif %}">
+                                        {{ crop.profit_status }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="col-12 text-center py-5">
+                        <span class="fs-1 d-block mb-3">🌾</span>
+                        <h5 class="fw-bold text-muted">No Crops Registered in the Marketplace</h5>
+                        <p class="text-muted small mb-0">Be the first to list fresh produce by registering as a Farmer!</p>
+                    </div>
+                {% endif %}
+            {% else %}
+                <div class="col-12 text-center py-5">
+                    <div class="card p-5 border-0 shadow-sm mx-auto text-center" style="max-width: 620px; border-radius: 20px; background: white;">
+                        <span class="fs-1 d-block mb-3">🔒</span>
+                        <h4 class="fw-bold text-dark mb-2">Member-Exclusive Produce Listings</h4>
+                        <p class="text-muted mb-4">Please log in to your DirectHarvest account to browse live crop listings, transparent mandi rates, and direct farmer contacts.</p>
+                        <div class="d-flex justify-content-center gap-3">
+                            <a href="/login?next=/marketplace&alert=Please+log+in+first+to+access+the+marketplace!" class="btn btn-success btn-lg px-4 fw-semibold">
+                                Log In to View Items
+                            </a>
+                            <a href="/register" class="btn btn-outline-success btn-lg px-4 fw-semibold">
+                                Register Free
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+        </div>
+
+    </div>
+
+</section>
+
+<!-- STATS -->
+
+<section class="stats">
+
+    <div class="container">
+
+        <div class="row text-center">
+
+            <div class="col-md-3">
+                <h1>{{ farmers_count if farmers_count is not none else 0 }}</h1>
+                <p>Farmers</p>
+            </div>
+
+            <div class="col-md-3">
+                <h1>{{ consumers_count if consumers_count is not none else 0 }}</h1>
+                <p>Consumers</p>
+            </div>
+
+            <div class="col-md-3">
+                <h1>{{ orders_count if orders_count is not none else 0 }}</h1>
+                <p>Orders</p>
+            </div>
+
+            <div class="col-md-3">
+                <h1>{{ satisfaction if satisfaction is not none else 100 }}%</h1>
+                <p>Satisfaction</p>
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+<!-- CTA -->
+
+<section class="cta-section">
+
+    <div class="container text-center">
+
+        <h2>
+            Join The Future Of Agriculture
+        </h2>
+
+        <p class="lead mt-3">
+
+            Direct selling.
+            Better profits.
+            AI-powered decisions.
+
+        </p>
+
+        <a href="/register"
+           class="btn btn-success btn-lg mt-3">
+
+            Get Started
+
+        </a>
+
+    </div>
+
+</section>
+
+{% include 'components/footer.html' %}
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>

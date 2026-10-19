@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Settings | Admin Panel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #f4f6f8;
+        }
+        .admin-card {
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            background: #ffffff;
+            border: none;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        .form-label {
+            font-weight: 500;
+            color: #495057;
+        }
+        .form-control, .form-select {
+            border-radius: 10px;
+            padding: 10px 14px;
+            border: 1px solid #ced4da;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: #2e7d32;
+            box-shadow: 0 0 0 0.25rem rgba(46, 125, 50, 0.25);
+        }
+        .btn-test {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+            font-weight: 500;
+        }
+        .btn-test:hover {
+            background-color: #c8e6c9;
+            color: #1b5e20;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid py-4">
+    <div class="admin-header d-flex justify-content-between align-items-center mb-4">
+        <h2>⚙️ AI Engine Settings (OpenAI / Vision / Custom)</h2>
+        <div>
+            {% if session.get('role') == 'admin' %}
+            <a href="/admin/dashboard" class="btn btn-outline-secondary">Dashboard</a>
+            {% elif session.get('role') == 'farmer' %}
+            <a href="/farmer/dashboard" class="btn btn-outline-secondary">Dashboard</a>
+            {% elif session.get('role') == 'delivery' %}
+            <a href="/delivery/dashboard" class="btn btn-outline-secondary">Dashboard</a>
+            {% elif session.get('role') == 'consumer' %}
+            <a href="/marketplace" class="btn btn-outline-secondary">Marketplace</a>
+            {% else %}
+            <a href="/" class="btn btn-outline-secondary">Home</a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if success %}
+    <div class="alert alert-success alert-dismissible fade show rounded-3" role="alert">
+        🚀 {{ success }}
+        <button type="submit" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+    <div id="test-alert" class="alert d-none rounded-3" role="alert"></div>
+
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="admin-card">
+                <form method="POST" action="/admin/ai-settings" autocomplete="off">
+                    <div class="alert alert-info py-2 px-3 mb-4 border-0 rounded-3" style="font-size: 0.9rem; background-color: #e8f5e9; color: #1b5e20;">
+                        💡 <strong>OpenAI Tip:</strong> Use the API endpoint <code>https://api.openai.com/v1</code>. If you accidentally paste <code>https://platform.openai.com/</code> (which is OpenAI's web dashboard), our system automatically converts it to the correct API endpoint for you.
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label mb-0 fw-semibold">AI Base URL (API Endpoint)</label>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-secondary py-0" style="font-size: 0.78rem;" onclick="setBaseUrl('https://api.openai.com/v1')">OpenAI</button>
+                                <button type="button" class="btn btn-outline-secondary py-0" style="font-size: 0.78rem;" onclick="setBaseUrl('https://api.groq.com/openai/v1')">Groq</button>
+                                <button type="button" class="btn btn-outline-secondary py-0" style="font-size: 0.78rem;" onclick="setBaseUrl('https://api.navigatelabs.xyz/v1')">Navigate Labs</button>
+                            </div>
+                        </div>
+                        <input type="text" name="base_url" id="base_url" class="form-control" autocomplete="off" value="{{ settings.base_url }}" placeholder="https://api.openai.com/v1" required oninput="checkPlatformUrl(this)">
+                        <div id="url-hint" class="form-text text-muted" style="font-size: 0.8rem;">
+                            Standard OpenAI endpoint: <code>https://api.openai.com/v1</code>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">AI Secret API Key</label>
+                        <input type="password" name="api_key" id="api_key" class="form-control" autocomplete="new-password" value="{% if settings.masked_key %}{{ settings.masked_key }}{% endif %}" placeholder="sk-proj-... or sk-...">
+                        <div class="form-text text-muted" style="font-size: 0.8rem;">
+                            {% if settings.has_real_key %}
+                                🔒 Key configured. Leave blank or masked to keep current key, or enter a new key to update.
+                            {% else %}
+                                Paste your secret key from <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">OpenAI API Keys</a>.
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Connection Status</label>
+                            <div class="form-control-plaintext" id="conn-status-container">
+                                {% if settings.ai_enabled %}
+                                    <span class="badge bg-success px-3 py-2 fs-6">🟢 Connected</span>
+                                {% else %}
+                                    <span class="badge bg-secondary px-3 py-2 fs-6">⚪ Disabled</span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">AI Status</label>
+                            <select name="ai_enabled" class="form-select">
+                                <option value="true" {% if settings.ai_enabled %}selected{% endif %}>Enable AI Features (Market Intelligence & Vision Grading)</option>
+                                <option value="false" {% if not settings.ai_enabled %}selected{% endif %}>Disable AI Features (Local Fallback Heuristics)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <label class="form-label fw-semibold">AI Model</label>
+                            <select name="model" id="model" class="form-select">
+                                {% if settings.available_models %}
+                                    {% for mdl in settings.available_models %}
+                                        <option value="{{ mdl }}" {% if settings.model == mdl %}selected{% endif %}>{{ mdl }}</option>
+                                    {% endfor %}
+                                {% else %}
+                                    <option value="{{ settings.model }}" selected>{{ settings.model }} (Currently Selected)</option>
+                                {% endif %}
+                            </select>
+                            <div class="form-text mt-2" id="available-models-text">
+                                {% if settings.available_models %}
+                                    Available Models: 
+                                    {% for mdl in settings.available_models %}
+                                        <code class="me-1 bg-light p-1 border rounded">{{ mdl }}</code>
+                                    {% endfor %}
+                                {% else %}
+                                    No models discovered yet. Click "Test API Connection" to fetch live available models.
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-3">
+                        <button type="submit" class="btn btn-success btn-lg px-5 rounded-3">
+                            Save Changes
+                        </button>
+                        <button type="button" id="btn-test-conn" class="btn btn-test btn-lg px-4 rounded-3 d-flex align-items-center gap-2">
+                            <span>Test API Connection</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function setBaseUrl(url) {
+        document.getElementById('base_url').value = url;
+        checkPlatformUrl(document.getElementById('base_url'));
+    }
+
+    function checkPlatformUrl(input) {
+        let val = input.value.trim();
+        const hint = document.getElementById('url-hint');
+        if (val.includes('platform.openai.com')) {
+            val = val.replace(/https?:\/\/platform\.openai\.com\/?/i, 'https://api.openai.com/v1');
+            input.value = val;
+            hint.innerHTML = `<span class="text-success fw-bold">✓ Automatically converted 'platform.openai.com' to API endpoint: 'https://api.openai.com/v1'</span>`;
+        } else {
+            hint.innerHTML = `Standard OpenAI endpoint: <code>https://api.openai.com/v1</code>`;
+        }
+    }
+
+    document.getElementById('btn-test-conn').addEventListener('click', async function() {
+        const btn = this;
+        const alertBox = document.getElementById('test-alert');
+        
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> <span>Testing...</span>`;
+        
+        alertBox.classList.add('d-none');
+        alertBox.className = 'alert rounded-3';
+
+        let base_url = document.getElementById('base_url').value.trim();
+        const api_key = document.getElementById('api_key').value.trim();
+
+        if (base_url.includes('platform.openai.com')) {
+            base_url = 'https://api.openai.com/v1';
+            document.getElementById('base_url').value = base_url;
+        }
+
+        try {
+            const response = await fetch('/admin/ai-settings/test-connection', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ base_url, api_key })
+            });
+
+            let data = null;
+            try {
+                data = await response.json();
+            } catch (jsonErr) {
+                data = { success: false, message: `Server returned HTTP ${response.status}` };
+            }
+
+            alertBox.classList.remove('d-none');
+            if (data && data.success) {
+                alertBox.classList.add('alert-success');
+                alertBox.innerHTML = `🟢 <strong>Success:</strong> ${data.message}`;
+                
+                if (data.normalized_url) {
+                    document.getElementById('base_url').value = data.normalized_url;
+                }
+
+                // Dynamically update connection status badge
+                const statusContainer = document.getElementById('conn-status-container');
+                if (statusContainer) {
+                    statusContainer.innerHTML = `<span class="badge bg-success px-3 py-2 fs-6">🟢 Connected</span>`;
+                }
+
+                // Dynamically update models dropdown & text list
+                if (data.models && data.models.length > 0) {
+                    const modelSelect = document.getElementById('model');
+                    const currentSelected = modelSelect.value;
+                    modelSelect.innerHTML = '';
+                    data.models.forEach(model => {
+                        const opt = document.createElement('option');
+                        opt.value = model;
+                        opt.textContent = model;
+                        if (model === currentSelected || (!currentSelected && model === 'gpt-4o-mini')) {
+                            opt.selected = true;
+                        }
+                        modelSelect.appendChild(opt);
+                    });
+
+                    const modelsText = document.getElementById('available-models-text');
+                    if (modelsText) {
+                        let innerText = 'Available Models: ';
+                        data.models.forEach(model => {
+                            innerText += `<code class="me-1 bg-light p-1 border rounded">${model}</code> `;
+                        });
+                        modelsText.innerHTML = innerText;
+                    }
+                }
+            } else {
+                alertBox.classList.add('alert-danger');
+                const errMsg = (data && (data.message || data.detail)) || `Connection failed (HTTP ${response.status})`;
+                alertBox.innerHTML = `🔴 <strong>Connection Issue:</strong> ${errMsg}`;
+                if (data && data.normalized_url) {
+                    document.getElementById('base_url').value = data.normalized_url;
+                }
+            }
+        } catch (err) {
+            alertBox.classList.remove('d-none');
+            alertBox.classList.add('alert-danger');
+            alertBox.innerHTML = `🔴 <strong>Network Error:</strong> Failed to reach server (${err.message || 'Check your internet connection'}).`;
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = `<span>Test API Connection</span>`;
+        }
+    });
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

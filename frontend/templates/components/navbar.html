@@ -1,0 +1,290 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-success sticky-top shadow">
+
+    <div class="container">
+
+        <a class="navbar-brand fw-bold"
+           href="/">
+
+            🌾 DirectHarvest AI
+
+        </a>
+
+        <button class="navbar-toggler"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#navbarContent">
+
+            <span class="navbar-toggler-icon"></span>
+
+        </button>
+
+        <div class="collapse navbar-collapse"
+             id="navbarContent">
+
+            <ul class="navbar-nav ms-auto align-items-center">
+
+                <li class="nav-item">
+
+                    <a class="nav-link"
+                       href="/">
+
+                        Home
+
+                    </a>
+
+                </li>
+
+                <li class="nav-item">
+
+                    <a class="nav-link"
+                       href="/marketplace">
+
+                        Marketplace
+
+                    </a>
+
+                </li>
+
+                <li class="nav-item">
+
+                    <a class="nav-link"
+                       href="/farmers">
+
+                        Farmers
+
+                    </a>
+
+                </li>
+
+                <li class="nav-item ms-lg-2">
+                    <span class="nav-link p-0 d-flex align-items-center" style="cursor: default; user-select: none;">
+                        <span id="global-ai-status-pill" class="badge rounded-pill bg-light {% if ai_status == 'connected' %}text-success{% else %}text-danger{% endif %} shadow-sm px-3 py-2 fw-bold" style="font-size: 0.82rem;">
+                            <span id="global-ai-status-dot" style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background-color: {% if ai_status == 'connected' %}#28a745; box-shadow: 0 0 6px rgba(40,167,69,0.8);{% else %}#dc3545; box-shadow: 0 0 6px rgba(220,53,69,0.8);{% endif %} margin-right: 5px;"></span>
+                            <span id="global-ai-status-text">{% if ai_status == 'connected' %}AI Connected{% else %}AI Disconnected{% endif %}</span>
+                        </span>
+                    </span>
+                </li>
+
+                {% if session.get("user_id") %}
+
+                <li class="nav-item">
+
+                    <a class="nav-link"
+                       href="/profile">
+
+                        My Profile
+
+                    </a>
+
+                </li>
+
+                {% endif %}
+
+                {% if session.get("role") == "farmer" %}
+
+                <li class="nav-item">
+
+                    <a class="nav-link"
+                       href="/farmer/dashboard">
+
+                        Farmer Dashboard
+
+                    </a>
+
+                </li>
+
+                {% endif %}
+
+                {% if session.get("role") == "consumer" %}
+
+                <li class="nav-item">
+
+                    <a class="nav-link"
+                       href="/order-history">
+
+                        Consumer Dashboard
+
+                    </a>
+
+                </li>
+
+                {% endif %}
+
+                {% if session.get("role") == "delivery" %}
+
+                <li class="nav-item">
+
+                    <a class="nav-link"
+                       href="/delivery/dashboard">
+
+                        Delivery Dashboard
+
+                    </a>
+
+                </li>
+
+                {% endif %}
+
+                {% if session.get("role") == "admin" %}
+
+                <li class="nav-item">
+
+                    <a class="nav-link"
+                       href="/admin/dashboard">
+
+                        Admin Panel
+
+                    </a>
+
+                </li>
+
+                {% endif %}
+
+                <!-- CART -->
+
+                {% if session.get("role") == "consumer" %}
+
+                <li class="nav-item">
+
+                    <a class="nav-link position-relative"
+                       href="/cart">
+
+                        🛒 Cart
+
+                        {% if session.get("cart") %}
+
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark">
+
+                            {{ session["cart"]|length }}
+
+                        </span>
+
+                        {% endif %}
+
+                    </a>
+
+                </li>
+
+                {% endif %}
+
+
+
+                <!-- USER SECTION -->
+
+                {% if session.get("user_id") %}
+
+                <li class="nav-item dropdown">
+
+                    <a class="nav-link dropdown-toggle"
+                       href="#"
+                       role="button"
+                       data-bs-toggle="dropdown">
+
+                        👤 {{ session.get("name") }}
+
+                    </a>
+
+                    <ul class="dropdown-menu dropdown-menu-end">
+
+                        <li>
+
+                            <span class="dropdown-item-text fw-bold">
+                                👤 {{ session.get("name") }}
+                            </span>
+                            <span class="dropdown-item-text text-muted small" style="margin-top: -6px; display: block;">
+                                Role: {{ session.get("role")|title }}
+                            </span>
+
+                        </li>
+
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
+
+                        <li>
+                            <a class="dropdown-item" href="/profile">
+                                👤 My Profile
+                            </a>
+                        </li>
+
+                        <li>
+                            {% if session.get("role") == "farmer" %}
+                            <a class="dropdown-item" href="/farmer/dashboard">
+                                📊 Dashboard
+                            </a>
+                            {% elif session.get("role") == "consumer" %}
+                            <a class="dropdown-item" href="/order-history">
+                                📊 Dashboard
+                            </a>
+                            {% elif session.get("role") == "delivery" %}
+                            <a class="dropdown-item" href="/delivery/dashboard">
+                                📊 Dashboard
+                            </a>
+                            {% elif session.get("role") == "admin" %}
+                            <a class="dropdown-item" href="/admin/dashboard">
+                                📊 Dashboard
+                            </a>
+                            {% endif %}
+                        </li>
+
+                        {% if session.get("role") == "admin" %}
+                        <li>
+                            <a class="dropdown-item" href="/admin/ai-settings">
+                                ⚙️ AI Configuration
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
+
+                        <li>
+
+                            <a class="dropdown-item text-danger"
+                               href="/logout">
+
+                                Logout
+
+                            </a>
+
+                        </li>
+
+                    </ul>
+
+                </li>
+                
+                {% else %}
+
+                <li class="nav-item">
+
+                    <a class="nav-link"
+                       href="/login">
+
+                        Login
+
+                    </a>
+
+                </li>
+
+                <li class="nav-item ms-2">
+
+                    <a class="btn btn-warning"
+                       href="/register">
+
+                        Register
+
+                    </a>
+
+                </li>
+
+                {% endif %}
+
+            </ul>
+
+        </div>
+
+    </div>
+
+</nav>
+<script src="{{ url_for('static', filename='js/platform_live_sync.js') }}"></script>
