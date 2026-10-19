@@ -32,10 +32,12 @@ class Settings:
     DEBUG = get_bool("DEBUG", APP_ENV == "development")
 
     # Database
-    DATABASE_URL = os.getenv(
-        "DATABASE_URL",
-        "mysql+pymysql://root:root@localhost:3306/directharvest?charset=utf8mb4",
-    ).strip()
+    DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+    if not DATABASE_URL and APP_ENV != "production":
+        DATABASE_URL = "mysql+pymysql://root:root@localhost:3306/directharvest?charset=utf8mb4"
+
+    # Aiven Cloud MySQL TLS/SSL CA certificate path
+    AIVEN_CA_PATH = os.getenv("AIVEN_CA_PATH", str(BASE_DIR / "ca.pem")).strip()
 
     # Authentication
     SECRET_KEY = os.getenv("SECRET_KEY", "").strip()
@@ -111,7 +113,29 @@ class Settings:
     # Keep secrets out of logs and frontend responses.
     @classmethod
     def validate(cls):
+        # Normalize database URL dialect if needed
+        if cls.DATABASE_URL.startswith("mysql://"):
+            cls.DATABASE_URL = "mysql+pymysql://" + cls.DATABASE_URL[len("mysql://"):]
+
         if cls.APP_ENV == "production":
+            if not cls.DATABASE_URL:
+                raise RuntimeError(
+                    "Production configuration error: DATABASE_URL environment variable is required. "
+                    "Set DATABASE_URL to your Aiven MySQL connection string in Render environment variables."
+                )
+
+            if "localhost" in cls.DATABASE_URL or "127.0.0.1" in cls.DATABASE_URL:
+                raise RuntimeError(
+                    "Production configuration error: DATABASE_URL cannot point to 'localhost' or '127.0.0.1'. "
+                    "Ensure your Render production service is configured with your remote Aiven MySQL database URL."
+                )
+
+            if not (cls.DATABASE_URL.startswith("mysql://") or cls.DATABASE_URL.startswith("mysql+pymysql://")):
+                raise RuntimeError(
+                    "Production configuration error: DATABASE_URL must use MySQL via PyMySQL driver "
+                    "(e.g. mysql+pymysql://avnadmin:PASSWORD@HOST:PORT/DATABASE_NAME)."
+                )
+
             if len(cls.SECRET_KEY) < 32:
                 raise RuntimeError(
                     "Production requires a SECRET_KEY of at least "
@@ -123,14 +147,29 @@ class Settings:
                     "DEBUG must be false in production."
                 )
 
-            if not cls.DATABASE_URL.startswith("mysql"):
-                raise RuntimeError(
-                    "Production must use the configured MySQL database."
-                )
-
             if not cls.BASE_URL.startswith("https://"):
                 raise RuntimeError(
-                    "Production BASE_URL must use HTTPS."
+                    "Production BASE_URL must use HTTPS (e.g. https://your-service.onrender.com)."
+                )
+
+            # Check CA certificate for Aiven in production
+            ca_path = Path(cls.AIVEN_CA_PATH).resolve()
+            ca_cert_env = os.getenv("AIVEN_CA_CERT", "").strip()
+            if ca_cert_env and not ca_path.exists():
+                try:
+                    ca_path.parent.mkdir(parents=True, exist_ok=True)
+                    ca_path.write_text(ca_cert_env, encoding="utf-8")
+                except Exception as exc:
+                    raise RuntimeError(
+                        f"Failed to write AIVEN_CA_CERT to '{ca_path}': {exc}"
+                    ) from exc
+
+            if not ca_path.is_file():
+                raise RuntimeError(
+                    f"Production configuration error: Aiven CA certificate not found at '{ca_path}'. "
+                    "Aiven Cloud MySQL requires verified TLS encryption. "
+                    "Please download 'ca.pem' from your Aiven Console and add it to the project root, "
+                    "or configure AIVEN_CA_PATH or AIVEN_CA_CERT in the Render environment variables."
                 )
 
         elif not cls.SECRET_KEY:

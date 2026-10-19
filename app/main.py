@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.database import Base, engine
+from app.database import Base, engine, get_sanitized_db_url
 from app import models  # Ensure all SQLAlchemy models are registered
 from app.routes import (
     public_router,
@@ -32,13 +32,21 @@ async def lifespan(application: FastAPI):
     (settings.UPLOAD_DIR / "packages").mkdir(parents=True, exist_ok=True)
     settings.STATIC_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Create missing tables for local development.
-    # For production schema changes, use a migration procedure.
+    sanitized_url = get_sanitized_db_url()
+    logger.info("Initializing database connection to: %s", sanitized_url)
+
+    # Verify cloud database connectivity and create missing tables
     try:
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        logger.info("Database connectivity check passed.")
+
         Base.metadata.create_all(bind=engine)
-        logger.info("Database schema checked successfully.")
-    except Exception:
-        logger.exception("Database initialization failed.")
+        logger.info("Database schema checked and tables verified successfully.")
+    except Exception as exc:
+        logger.error("Database connection/initialization failed for: %s", sanitized_url)
+        logger.exception("Database startup error details: %s", exc)
         raise
 
     # Initialize Excel Credentials and start background watcher

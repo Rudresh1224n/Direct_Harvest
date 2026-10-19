@@ -36,6 +36,12 @@ def test_api_places_autocomplete_endpoint(client):
 
 def test_registration_with_detailed_address(client, db):
     test_email = "detailed_address_user@gmail.com"
+    from app.models.user import User, ConsumerProfile
+    existing = db.query(User).filter(User.email == test_email).first()
+    if existing:
+        db.query(ConsumerProfile).filter(ConsumerProfile.consumer_id == existing.id).delete()
+        db.delete(existing)
+        db.commit()
     r = client.post(
         "/register",
         data={

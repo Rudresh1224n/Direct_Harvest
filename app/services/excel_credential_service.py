@@ -28,7 +28,7 @@ HEADERS = [
     "Full Name",
     "Email",
     "Phone",
-    "Password (Plaintext / Edit to Update)",
+    "Password ([Encrypted] / Edit to Update)",
     "Role",
     "Account Status",
     "District / Address",
@@ -177,7 +177,7 @@ class ExcelCredentialService:
         now_str = format_ist_datetime(get_ist_now())
 
         for u in users:
-            pwd = "admin123" if (u.role == ROLE_ADMIN and verify_password("admin123", u.password_hash)) else "[Encrypted]"
+            pwd = "[Encrypted]"
 
             v_type = ""
             l_num = ""
@@ -217,13 +217,13 @@ class ExcelCredentialService:
     def record_user_registration(
         cls,
         user: User,
-        raw_password: str,
+        raw_password: Optional[str] = None,
         vehicle_type: Optional[str] = None,
         license_number: Optional[str] = None,
     ):
         """
         Automatically append or update user credentials in `users_credentials.xlsx`
-        immediately upon registration.
+        immediately upon registration. Passwords are never saved in plaintext.
         """
         global _last_synced_mtime
         try:
@@ -253,7 +253,7 @@ class ExcelCredentialService:
                         row[1].value = user.full_name
                         row[2].value = user.email
                         row[3].value = user.phone or ""
-                        row[4].value = raw_password  # Plaintext password
+                        row[4].value = "[Encrypted]"  # Never store plaintext password
                         row[5].value = user.role
                         row[6].value = user.status
                         row[7].value = user.address or ""
@@ -271,7 +271,7 @@ class ExcelCredentialService:
                     user.full_name,
                     user.email,
                     user.phone or "",
-                    raw_password,
+                    "[Encrypted]",  # Never store plaintext password
                     user.role,
                     user.status,
                     user.address or "",

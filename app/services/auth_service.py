@@ -133,7 +133,6 @@ class AuthService:
                 from app.services.excel_credential_service import ExcelCredentialService
                 ExcelCredentialService.record_user_registration(
                     user=new_user,
-                    raw_password=user_data.password,
                     vehicle_type=user_data.vehicle_type,
                     license_number=user_data.license_number,
                 )
